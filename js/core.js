@@ -1,0 +1,27 @@
+// Общие константы и утилиты. Логика игры не трогает DOM.
+(function (W) {
+  W.CFG = {
+    WORLD_W: 1600, WORLD_H: 800, WATER_Y: 760, DT: 1 / 60,
+    GRAVITY: 900, WIND_MAX: 10, WIND_ACCEL: 15,
+    TURN_TIME: 30, RETREAT_TIME: 3, HP: 100,
+    WORM_R: 10, WALK_SPEED: 50, MAX_CLIMB: 6,
+    JUMP_VX: 120, JUMP_VY: -220, BACKJUMP_VX: -60, BACKJUMP_VY: -330,
+    FALL_SAFE: 60, FALL_DIV: 4, FALL_MAX: 30,
+    MAX_SHOT_SPEED: 900, CHARGE_TIME: 1.5, OFFWORLD_MARGIN: 200,
+  };
+
+  // mulberry32
+  W.rng = function (seed) {
+    let a = seed >>> 0;
+    return function () {
+      a = (a + 0x6d2b79f5) >>> 0;
+      let t = a;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+
+  W.clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  W.dist = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
+})(window.W = window.W || {});
