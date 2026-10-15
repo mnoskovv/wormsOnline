@@ -125,7 +125,7 @@
   };
 
   function validTarget(game, weapon, target) {
-    if (!target) return false;
+    if (!target || !Number.isFinite(target.x) || !Number.isFinite(target.y)) return false;
     if (weapon === 'airstrike') return target.x >= 0 && target.x <= C.WORLD_W;
     const { x, y } = target;
     if (x < R || x > C.WORLD_W - R || y < R || y > C.WATER_Y - R) return false;

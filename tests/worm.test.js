@@ -86,3 +86,16 @@ test('worm over the void drowns', () => {
   assert.ok(w.dead && w.drowned);
   assert.strictEqual(ev.filter(e => e.type === 'drown').length, 1);
 });
+
+test('a dead worm keeps falling until its grave lands', () => {
+  const t = ground();
+  const w = W.makeWorm(0, 'A', 800, 300);
+  w.hp = 0;
+  w.dead = true;
+  assert.strictEqual(W.isWormResting(w), false);
+  const ev = run(w, t, 3);
+  assert.ok(w.grounded);
+  assert.ok(Math.abs(w.y - 490) <= 1, `y=${w.y}`);
+  assert.strictEqual(ev.filter(e => e.type === 'fallDamage').length, 0);
+  assert.strictEqual(W.isWormResting(w), true);
+});

@@ -44,8 +44,9 @@
       this.holes.push({ x, y, r });
     }
 
+    // Список дыр только растёт: применяем те, которых у нас ещё нет.
     applyHoles(list) {
-      for (const h of list) this.carve(h.x, h.y, h.r);
+      for (let i = this.holes.length; i < list.length; i++) this.carve(list[i].x, list[i].y, list[i].r);
     }
 
     circleHitsSolid(x, y, r) {

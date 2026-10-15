@@ -80,6 +80,9 @@ test('teleport rejects solid or off-map targets without spending ammo', () => {
   const a = g.worms[0];
   assert.strictEqual(W.fireWeapon(g, a, { weapon: 'teleport', target: { x: 800, y: 600 } }), false);
   assert.strictEqual(W.fireWeapon(g, a, { weapon: 'teleport', target: { x: -50, y: 100 } }), false);
+  assert.strictEqual(W.fireWeapon(g, a, { weapon: 'teleport', target: { x: NaN, y: NaN } }), false);
+  assert.strictEqual(W.fireWeapon(g, a, { weapon: 'airstrike', target: { x: NaN, y: 0 } }), false);
+  assert.strictEqual(g.ammo[0].airstrike, 1);
   assert.strictEqual(g.ammo[0].teleport, 2);
   assert.strictEqual(W.fireWeapon(g, a, { weapon: 'teleport', target: { x: 1000, y: 300 } }), true);
   assert.deepStrictEqual([a.x, a.y], [1000, 300]);

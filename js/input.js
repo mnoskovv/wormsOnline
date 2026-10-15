@@ -10,6 +10,8 @@
       this.charge = null;
       this.hover = null;
       this.held = { left: false, right: false };
+      // Второй клик по кнопке «В бой!» не должен стать выстрелом.
+      this.armedAt = performance.now() + 400;
       this.handlers = [];
       this.on(window, 'keydown', e => this.keyDown(e));
       this.on(window, 'keyup', e => this.keyUp(e));
@@ -111,7 +113,7 @@
 
     mouseDown(e) {
       if (e.button !== 0 || !this.mine()) return;
-      if (this.opts.isPanelOpen()) return;
+      if (this.opts.isPanelOpen() || performance.now() < this.armedAt) return;
       this.hover = this.renderer.toWorld(e.clientX, e.clientY);
       if (this.weaponDef().aim === 'target') {
         this.send({ type: 'fire', target: { x: this.hover.x, y: this.hover.y } });

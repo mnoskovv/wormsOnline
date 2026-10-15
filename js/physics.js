@@ -24,7 +24,7 @@
     w.vy = 0;
     const fall = w.y - w.fallStartY;
     events.push({ type: 'land', worm: w, fall });
-    if (fall > C.FALL_SAFE) {
+    if (fall > C.FALL_SAFE && !w.dead) {
       const amount = Math.floor(Math.min(C.FALL_MAX, (fall - C.FALL_SAFE) / C.FALL_DIV));
       if (amount > 0) {
         w.hp -= amount;
@@ -90,7 +90,17 @@
 
   W.stepWorm = function (w, t, walkDir, dt) {
     const events = [];
-    if (w.dead) return events;
+    if (w.drowned) return events;
+    if (w.dead) {
+      // Надгробие падает, пока не ляжет на землю или не утонет.
+      if (w.grounded && !supported(t, w.x, w.y)) startFalling(w);
+      if (!w.grounded) fly(w, t, dt, events);
+      if (w.y > C.WATER_Y) {
+        w.drowned = true;
+        events.push({ type: 'drown', worm: w });
+      }
+      return events;
+    }
     if (w.grounded) {
       if (walkDir) walk(w, t, walkDir, dt);
       if (w.grounded && !supported(t, w.x, w.y)) startFalling(w);
@@ -175,5 +185,5 @@
     return 'flying';
   };
 
-  W.isWormResting = (w) => w.dead || (w.grounded && w.vx === 0 && w.vy === 0);
+  W.isWormResting = (w) => w.drowned || (w.grounded && w.vx === 0 && w.vy === 0);
 })(window.W = window.W || {});
