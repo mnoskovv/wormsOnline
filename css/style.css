@@ -78,3 +78,7 @@ body { display: flex; align-items: center; justify-content: center; font-family:
 .result-title { font-size: 44px; font-weight: bold; -webkit-text-stroke: 1px rgba(0, 0, 0, 0.15); }
 .names .p1 input { border-color: #2f7bff; }
 .names .p2 input { border-color: #ff3b3b; }
+.mute {
+  position: absolute; top: 12px; right: 12px; width: 44px; height: 44px; border-radius: 50%;
+  border: 3px solid #3a6ec8; background: rgba(255, 255, 255, 0.92); font-size: 20px; cursor: pointer; z-index: 5;
+}

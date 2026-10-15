@@ -87,3 +87,12 @@ test('grenade bounces off the floor and explodes on its fuse', () => {
   assert.strictEqual(status, 'explode');
   assert.ok(Math.abs(time - 3) <= 0.05, `time=${time}`);
 });
+
+test('bouncing grenade reports a bounce event', () => {
+  const t = new W.Terrain(1600, 800);
+  t.fillRect(0, 500, 1600, 300);
+  const p = proj({ x: 800, y: 400, vy: 300, bounce: 0.5, fuse: 3 });
+  const events = [];
+  for (let i = 0; i < 60; i++) W.stepProjectile(p, t, [], 0, DT, events);
+  assert.ok(events.some(e => e.type === 'bounce'));
+});

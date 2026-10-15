@@ -64,6 +64,7 @@
         game.walkDir = cmd.dir;
         return true;
       case 'jump':
+        if (worm.grounded) game.events.push({ type: 'jump', worm });
         W.jumpWorm(worm, !!cmd.back);
         return true;
       case 'aim':

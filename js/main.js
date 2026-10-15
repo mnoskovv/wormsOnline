@@ -117,6 +117,7 @@
         spawnEffects(m, e);
         if (W.onGameEvent) W.onGameEvent(m, e);
       }
+      tickSounds(m);
       m.input.update(dt);
       if (m.game.phase !== 'turn' && m.panel && m.panel.isOpen()) m.panel.close();
       updateEffects(m.effects, dt);
@@ -128,6 +129,47 @@
     W.match = m;
     return m;
   };
+
+  const SHOT_SOUND = { bazooka: 'bazookaShot', mortar: 'bazookaShot', grenade: 'throw', dynamite: 'fuse',
+    shotgun: 'shotgun', sniper: 'sniper', airstrike: 'plane', teleport: 'teleport' };
+  let lastHurt = 0;
+
+  // Звук на каждое событие игры.
+  function playEventSound(e) {
+    const S = W.Sfx;
+    switch (e.type) {
+      case 'shot': S.play(SHOT_SOUND[e.weapon]); break;
+      case 'explosion':
+        if (!e.bullet) S.play(e.r <= 25 ? 'explosionSmall' : e.r <= 45 ? 'explosionMedium' : 'explosionBig');
+        break;
+      case 'damage':
+      case 'fallDamage':
+        if (performance.now() - lastHurt > 150) { lastHurt = performance.now(); S.play('hurt'); }
+        break;
+      case 'drown': S.play('splash'); break;
+      case 'splashProjectile': if (!e.gone) S.play('splash'); break;
+      case 'land': if (e.fall > 20) S.play('step'); break;
+      case 'bounce': S.play('bounce'); break;
+      case 'jump': S.play('jump'); break;
+      case 'gameover': S.play('win'); break;
+    }
+  }
+
+  // Тиканье последних секунд хода и запалов.
+  function tickSounds(m) {
+    const g = m.game;
+    const secs = g.phase === 'turn' ? Math.ceil(g.turnTime) : null;
+    if (secs !== null && secs <= 5 && secs > 0 && secs !== m.lastSecs) W.Sfx.play('timerTick');
+    m.lastSecs = secs;
+    for (const p of g.projectiles) {
+      if (p.fuse === null || p.kind !== 'grenade') continue;
+      const s = Math.ceil(p.fuse);
+      if (p.lastTick !== undefined && s !== p.lastTick) W.Sfx.play('tick');
+      p.lastTick = s;
+    }
+  }
+
+  W.onGameEvent = function (m, e) { playEventSound(e); };
 
   W.showMenu = function () {
     W.stopMatch();

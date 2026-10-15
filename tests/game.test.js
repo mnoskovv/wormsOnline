@@ -115,3 +115,11 @@ test('straight-up bazooka shot does not hang the game', () => {
   run(g, 60);
   assert.ok(g.turnNumber >= 2 || g.phase === 'gameover', `phase=${g.phase} turn=${g.turnNumber}`);
 });
+
+test('jumping from the ground emits a jump event', () => {
+  const g = newGame();
+  run(g, 0.5);
+  g.events.length = 0;
+  assert.ok(W.applyCommand(g, g.current, { type: 'jump', back: false }));
+  assert.ok(g.events.some(e => e.type === 'jump'));
+});

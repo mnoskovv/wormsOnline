@@ -219,3 +219,14 @@
 
   UI.hideResult = function () { if (result) result.classList.add('hidden'); };
 })(window.W = window.W || {});
+
+// Кнопка звука в углу.
+(function (W) {
+  const btn = document.createElement('button');
+  btn.className = 'mute';
+  const sync = () => { btn.textContent = W.Sfx.isMuted() ? '🔇' : '🔊'; };
+  btn.addEventListener('mousedown', e => e.stopPropagation());
+  btn.addEventListener('click', () => { W.Sfx.setMuted(!W.Sfx.isMuted()); sync(); btn.blur(); });
+  sync();
+  document.getElementById('ui').append(btn);
+})(window.W = window.W || {});
