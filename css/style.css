@@ -30,3 +30,51 @@ body { display: flex; align-items: center; justify-content: center; font-family:
   font: bold 14px "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif; cursor: pointer;
 }
 .wp-skip:hover { background: #ffc865; }
+
+.menu, .result {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
+}
+.menu { background: linear-gradient(#86c8ff, #d6efff 60%, #8fd06a 60%, #5fa83a); overflow: auto; }
+.result { background: rgba(20, 12, 40, 0.35); }
+.menu-card, .result-card {
+  background: rgba(255, 255, 255, 0.95); border: 5px solid #3a6ec8; border-radius: 28px;
+  padding: 18px 28px 22px; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3); text-align: center; max-width: 92vw;
+}
+.logo {
+  margin: 0 0 10px; font-size: 64px; color: #ff7aa8; letter-spacing: 1px;
+  -webkit-text-stroke: 3px #7a2f4a; text-shadow: 0 5px 0 #7a2f4a;
+}
+.names { display: flex; gap: 16px; justify-content: center; margin-bottom: 12px; }
+.names label { display: flex; flex-direction: column; font-weight: bold; font-size: 14px; gap: 4px; }
+.names .p1 { color: #2f7bff; }
+.names .p2 { color: #ff3b3b; }
+.names input {
+  font: bold 18px inherit; font-family: inherit; padding: 8px 12px; border-radius: 12px; width: 190px;
+  border: 3px solid currentColor; color: #34405a; outline: none; text-align: center;
+}
+.menu-sub { font-weight: bold; color: #34405a; margin: 6px 0; }
+.maps { display: grid; grid-template-columns: repeat(3, 172px); gap: 10px; justify-content: center; }
+.map-card {
+  border: 3px solid #c9d6ea; border-radius: 16px; background: #f2f7ff; padding: 6px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; font: bold 14px inherit; font-family: inherit; color: #34405a;
+}
+.map-card canvas, .map-random { width: 156px; height: 78px; border-radius: 10px; display: block; }
+.map-random { display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #ffb3c8, #b46bff); color: #fff; font-size: 44px; font-weight: bold; }
+.map-card:hover { border-color: #3a6ec8; transform: translateY(-2px); }
+.map-card.selected { border-color: #ffb43b; background: #fff7cf; box-shadow: 0 0 0 3px #ffb43b inset; }
+.btn-start, .btn-again, .btn-menu {
+  margin-top: 16px; border: 0; border-radius: 16px; padding: 12px 34px; cursor: pointer;
+  font: bold 22px "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
+  background: #58c23a; color: #fff; box-shadow: 0 5px 0 #2f7a1a;
+}
+.btn-start:hover, .btn-again:hover { background: #6cd44c; }
+.btn-start:active, .btn-again:active, .btn-menu:active { transform: translateY(3px); box-shadow: 0 2px 0 #2f7a1a; }
+.btn-menu { background: #6b8ac8; box-shadow: 0 5px 0 #3a5a9a; margin-left: 10px; }
+.online { margin-top: 12px; display: flex; gap: 8px; align-items: center; justify-content: center; }
+.online button { border: 0; border-radius: 12px; padding: 8px 14px; font: bold 14px inherit; font-family: inherit; background: #d8dfea; color: #8a96ad; }
+.online span { color: #8a96ad; font-size: 13px; }
+.help { margin-top: 12px; font-size: 12px; color: #6a7590; }
+.result-title { font-size: 44px; font-weight: bold; -webkit-text-stroke: 1px rgba(0, 0, 0, 0.15); }
+.names .p1 input { border-color: #2f7bff; }
+.names .p2 input { border-color: #ff3b3b; }

@@ -116,3 +116,106 @@
     isOpen() { return !!panel && !panel.classList.contains('hidden'); },
   };
 })(window.W = window.W || {});
+
+// Главное меню и экран результата.
+(function (W) {
+  const C = W.CFG;
+  const UI = W.UI;
+  const MAP_ORDER = ['polyanka', 'halloween', 'pirates', 'mine', 'wildwest'];
+
+  const store = {
+    get(k, d) { try { return JSON.parse(localStorage.getItem('worms.' + k)) ?? d; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('worms.' + k, JSON.stringify(v)); } catch (e) { /* без сохранения */ } },
+  };
+
+  function preview(map) {
+    const cv = document.createElement('canvas');
+    cv.width = 320;
+    cv.height = 160;
+    const ctx = cv.getContext('2d');
+    const s = cv.width / C.WORLD_W;
+    ctx.scale(s, s);
+    map.drawSky(ctx, C.WORLD_W, C.WORLD_H);
+    map.drawBackdrop(ctx, C.WORLD_W, C.WORLD_H);
+    const art = new W.TerrainArt(map);
+    ctx.drawImage(art.canvas, 0, 0);
+    ctx.fillStyle = map.waterColor[0];
+    ctx.fillRect(0, C.WATER_Y, C.WORLD_W, C.WORLD_H - C.WATER_Y);
+    return cv;
+  }
+
+  let menu = null, result = null;
+
+  UI.showMenu = function (onStart) {
+    UI.hideResult();
+    if (!menu) {
+      menu = document.createElement('div');
+      menu.className = 'menu';
+      menu.innerHTML = `
+        <div class="menu-card">
+          <h1 class="logo">Червячки</h1>
+          <div class="names">
+            <label class="p1">Игрок 1<input maxlength="14" data-i="0"></label>
+            <label class="p2">Игрок 2<input maxlength="14" data-i="1"></label>
+          </div>
+          <div class="menu-sub">Карта</div>
+          <div class="maps"></div>
+          <button class="btn-start">Хотсит — в бой!</button>
+          <div class="online">
+            <button disabled>Создать игру</button>
+            <button disabled>Подключиться</button>
+            <span>по сети — скоро</span>
+          </div>
+          <div class="help">← → ходить · Enter прыжок · Backspace прыжок назад · мышь — прицел · пробел/ЛКМ — выстрел · Tab/ПКМ — оружие</div>
+        </div>`;
+      const maps = menu.querySelector('.maps');
+      for (const id of [...MAP_ORDER, 'random']) {
+        const card = document.createElement('button');
+        card.className = 'map-card';
+        card.dataset.id = id;
+        if (id === 'random') card.innerHTML = '<div class="map-random">?</div>';
+        else card.append(preview(W.MAPS[id]));
+        card.insertAdjacentHTML('beforeend', `<span>${id === 'random' ? 'Случайная' : W.MAPS[id].name}</span>`);
+        card.addEventListener('click', () => select(id));
+        maps.append(card);
+      }
+      document.getElementById('ui').append(menu);
+    }
+    const inputs = menu.querySelectorAll('.names input');
+    const names = store.get('names', ['Игрок 1', 'Игрок 2']);
+    inputs.forEach((inp, i) => { inp.value = names[i]; });
+    let chosen = store.get('map', 'random');
+    if (chosen !== 'random' && !W.MAPS[chosen]) chosen = 'random';
+    function select(id) {
+      chosen = id;
+      for (const c of menu.querySelectorAll('.map-card')) c.classList.toggle('selected', c.dataset.id === id);
+    }
+    select(chosen);
+    menu.querySelector('.btn-start').onclick = () => {
+      const n = [...inputs].map((inp, i) => inp.value.trim() || `Игрок ${i + 1}`);
+      store.set('names', n);
+      store.set('map', chosen);
+      menu.classList.add('hidden');
+      const mapId = chosen === 'random' ? MAP_ORDER[Math.floor(Math.random() * MAP_ORDER.length)] : chosen;
+      onStart({ mapId, names: n });
+    };
+    menu.classList.remove('hidden');
+  };
+
+  UI.showResult = function (winnerName, color, onAgain, onMenu) {
+    if (!result) {
+      result = document.createElement('div');
+      result.className = 'result';
+      result.innerHTML = '<div class="result-card"><div class="result-title"></div><button class="btn-again">Ещё раз</button><button class="btn-menu">В меню</button></div>';
+      document.getElementById('ui').append(result);
+    }
+    const title = result.querySelector('.result-title');
+    title.textContent = winnerName ? `Победил ${winnerName}!` : 'Ничья!';
+    title.style.color = color;
+    result.querySelector('.btn-again').onclick = () => { UI.hideResult(); onAgain(); };
+    result.querySelector('.btn-menu').onclick = () => { UI.hideResult(); onMenu(); };
+    result.classList.remove('hidden');
+  };
+
+  UI.hideResult = function () { if (result) result.classList.add('hidden'); };
+})(window.W = window.W || {});

@@ -120,13 +120,30 @@
       m.input.update(dt);
       if (m.game.phase !== 'turn' && m.panel && m.panel.isOpen()) m.panel.close();
       updateEffects(m.effects, dt);
-      renderer.draw(m.game, map, art, { charge: m.input.charge, hoverTarget: m.input.hover, effects: m.effects });
+      renderer.draw(m.game, map, art, { charge: m.input.charge, hoverTarget: m.input.hover, effects: m.effects, hideGameOver: m.resultShown });
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
     match = m;
     W.match = m;
     return m;
+  };
+
+  W.showMenu = function () {
+    W.stopMatch();
+    W.UI.showMenu(opts => W.startMatch(opts));
+  };
+
+  W.onGameOver = function (m) {
+    setTimeout(() => {
+      if (!m.running) return;
+      m.resultShown = true;
+      const g = m.game;
+      const draw = g.winner === 'draw';
+      W.UI.showResult(draw ? null : g.worms[g.winner].name, draw ? '#5a6b8c' : W.PLAYER_COLORS[g.winner],
+        () => W.startMatch({ mapId: m.mapId, names: m.names }),
+        () => W.showMenu());
+    }, 1500);
   };
 
   W.stopMatch = function () {
