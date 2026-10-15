@@ -17,13 +17,17 @@
   <script src="js/game.js"></script>
   <script src="js/art.js"></script>
   <script src="js/maps/polyanka.js"></script>
+  <script src="js/maps/halloween.js"></script>
+  <script src="js/maps/pirates.js"></script>
+  <script src="js/maps/mine.js"></script>
+  <script src="js/maps/wildwest.js"></script>
   <script src="js/terrainArt.js"></script>
   <script src="js/render.js"></script>
   <script src="js/input.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/main.js"></script>
   <script>
-    W.startMatch({ mapId: 'polyanka', names: ['Игрок 1', 'Игрок 2'] });
+    W.startMatch({ mapId: new URLSearchParams(location.search).get('map') || 'polyanka', names: ['Игрок 1', 'Игрок 2'] });
   </script>
 </body>
 </html>
