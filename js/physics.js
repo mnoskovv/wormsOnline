@@ -115,5 +115,65 @@
     startFalling(w);
   };
 
+  // Нормаль поверхности в точке: от центра масс твёрдых пикселей вокруг.
+  function surfaceNormal(t, x, y) {
+    let nx = 0, ny = 0;
+    for (let dy = -4; dy <= 4; dy++)
+      for (let dx = -4; dx <= 4; dx++)
+        if (dx * dx + dy * dy <= 16 && t.isSolid(x + dx, y + dy)) { nx -= dx; ny -= dy; }
+    const len = Math.hypot(nx, ny);
+    return len ? { x: nx / len, y: ny / len } : { x: 0, y: -1 };
+  }
+
+  function hitsWorm(p, worms) {
+    for (const w of worms) {
+      if (w.dead) continue;
+      if (w === p.owner && p.age < 0.1) continue;
+      if (W.dist(p.x, p.y, w.x, w.y) < p.r + R) return true;
+    }
+    return false;
+  }
+
+  W.stepProjectile = function (p, t, worms, wind, dt, events) {
+    p.age = (p.age || 0) + dt;
+    if (t.circleHitsSolid(p.x, p.y, p.r) && !p.bounce) return 'explode';
+    const ax = p.windAffected ? wind * C.WIND_ACCEL : 0;
+    const ay = C.GRAVITY;
+    // Точное интегрирование при постоянном ускорении, по подшагам ≤ 2 px.
+    const dx = p.vx * dt + 0.5 * ax * dt * dt;
+    const dy = p.vy * dt + 0.5 * ay * dt * dt;
+    const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 2));
+    const h = dt / n;
+    for (let i = 0; i < n; i++) {
+      const px = p.x, py = p.y;
+      p.x += p.vx * h + 0.5 * ax * h * h;
+      p.y += p.vy * h + 0.5 * ay * h * h;
+      p.vx += ax * h;
+      p.vy += ay * h;
+      if (hitsWorm(p, worms) && !p.bounce) return 'explode';
+      if (t.circleHitsSolid(p.x, p.y, p.r)) {
+        if (!p.bounce) return 'explode';
+        const nrm = surfaceNormal(t, p.x, p.y);
+        p.x = px;
+        p.y = py;
+        const vn = p.vx * nrm.x + p.vy * nrm.y;
+        if (vn < 0) {
+          const speed = Math.hypot(p.vx, p.vy);
+          p.vx = (p.vx - vn * nrm.x) * 0.8 - vn * nrm.x * p.bounce;
+          p.vy = (p.vy - vn * nrm.y) * 0.8 - vn * nrm.y * p.bounce;
+          if (events && speed > 60) events.push({ type: 'bounce', x: p.x, y: p.y });
+          if (Math.hypot(p.vx, p.vy) < 15) { p.vx = 0; p.vy = 0; }
+        }
+        break;
+      }
+    }
+    if (p.fuse !== null) {
+      p.fuse -= dt;
+      if (p.fuse <= 1e-9) return 'explode';
+    }
+    if (p.x < -C.OFFWORLD_MARGIN || p.x > C.WORLD_W + C.OFFWORLD_MARGIN || p.y > C.WATER_Y) return 'gone';
+    return 'flying';
+  };
+
   W.isWormResting = (w) => w.dead || (w.grounded && w.vx === 0 && w.vy === 0);
 })(window.W = window.W || {});
