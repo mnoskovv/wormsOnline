@@ -1,3 +1,32 @@
 html, body { margin: 0; height: 100%; background: #1b1430; overflow: hidden; }
 body { display: flex; align-items: center; justify-content: center; font-family: "Trebuchet MS", Arial, sans-serif; }
 #game { display: block; }
+
+#ui { position: fixed; inset: 0; pointer-events: none; }
+#ui > * { pointer-events: auto; }
+.hidden { display: none !important; }
+
+.weapon-panel {
+  position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%);
+  background: rgba(255, 255, 255, 0.96); border: 4px solid var(--player, #2f7bff); border-radius: 22px;
+  padding: 12px 16px 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); text-align: center;
+  font-family: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
+}
+.wp-title { font-weight: bold; font-size: 18px; color: var(--player, #2f7bff); margin-bottom: 8px; }
+.wp-grid { display: grid; grid-template-columns: repeat(4, 96px); gap: 8px; }
+.wp-cell {
+  position: relative; height: 96px; border: 3px solid #c9d6ea; border-radius: 16px; background: #f2f7ff;
+  cursor: pointer; padding: 4px; display: flex; flex-direction: column; align-items: center; font-family: inherit;
+}
+.wp-cell:hover:not(:disabled) { border-color: var(--player, #2f7bff); background: #fff; transform: translateY(-2px); }
+.wp-cell.selected { border-color: var(--player, #2f7bff); background: #fff7cf; }
+.wp-cell:disabled { opacity: 0.35; cursor: default; }
+.wp-cell canvas { width: 56px; height: 56px; }
+.wp-name { font-size: 12px; font-weight: bold; color: #34405a; }
+.wp-key { position: absolute; top: 4px; left: 8px; font-size: 11px; color: #8a96ad; font-weight: bold; }
+.wp-ammo { position: absolute; top: 3px; right: 8px; font-size: 13px; color: #34405a; font-weight: bold; }
+.wp-skip {
+  margin-top: 10px; border: 0; border-radius: 12px; padding: 8px 18px; background: #ffb43b; color: #4a2a00;
+  font: bold 14px "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif; cursor: pointer;
+}
+.wp-skip:hover { background: #ffc865; }

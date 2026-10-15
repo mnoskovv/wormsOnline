@@ -19,6 +19,9 @@
         for (let i = 0; i < 6; i++) fx.push({ type: 'smoke', x: e.x + rnd(-e.r, e.r) / 2, y: e.y + rnd(-e.r, e.r) / 2, size: e.r / 3, t: 0, life: 1 + Math.random() });
         for (let i = 0; i < e.r / 2; i++) fx.push(particle(e.x, e.y, map.dirtColors, e.r * 6, 3 + Math.random() * 3));
         break;
+      case 'shot':
+        if (e.weapon === 'airstrike') fx.push({ type: 'plane', x: 0, y: 70, dir: e.target.x < C.WORLD_W / 2 ? 1 : -1, t: 0, life: 2.2 });
+        break;
       case 'tracer':
         fx.push({ type: 'tracer', x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, life: 0.15 });
         break;
@@ -87,6 +90,7 @@
       seed: Math.floor(Math.random() * 1e9) });
     const m = { map, art, game, renderer, effects: [], mapId, names, running: true };
     m.panel = W.UI && W.UI.weaponPanel;
+    // Панель создаётся лениво при первом открытии.
     m.input = new W.Input(canvas, renderer, {
       getGame: () => m.game,
       canControl: () => true, // хотсит: управляет тот, чей ход

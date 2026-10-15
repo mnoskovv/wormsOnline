@@ -254,6 +254,15 @@
           ctx.fillStyle = e.color || '#e81e1e';
           ctx.fillText(e.text, e.x, e.y - k * 40);
           ctx.globalAlpha = 1;
+        } else if (e.type === 'plane') {
+          const x = e.dir === 1 ? -120 + k * (C.WORLD_W + 240) : C.WORLD_W + 120 - k * (C.WORLD_W + 240);
+          ctx.save();
+          ctx.translate(x, e.y);
+          ctx.scale(e.dir * 2.2, 2.2);
+          A.shape(ctx, c => { c.moveTo(-22, 0); c.quadraticCurveTo(-10, -8, 20, -4); c.quadraticCurveTo(26, 0, 20, 4); c.quadraticCurveTo(-10, 8, -22, 0); }, '#8fa3b8', '#1d2a38', 1.5);
+          A.shape(ctx, c => { c.moveTo(-2, -2); c.lineTo(-12, -14); c.lineTo(-6, -14); c.lineTo(8, -2); c.closePath(); }, '#7189a3', '#1d2a38', 1.2);
+          A.shape(ctx, c => { c.moveTo(-22, 0); c.lineTo(-26, -9); c.lineTo(-18, -2); c.closePath(); }, '#d23b3b', '#1d2a38', 1.2);
+          ctx.restore();
         } else if (e.type === 'banner') {
           ctx.globalAlpha = k < 0.15 ? k / 0.15 : k > 0.75 ? (1 - k) / 0.25 : 1;
           ctx.font = `bold 40px ${FONT}`;
