@@ -106,7 +106,7 @@
       const ctx = this.ctx;
       if (w.drowned) return;
       if (w.dead) {
-        A.shape(ctx, c => { c.moveTo(w.x - 9, w.y + 10); c.lineTo(w.x - 9, w.y - 6); c.arc(w.x, w.y - 6, 9, Math.PI, 0); c.lineTo(w.x + 9, w.y + 10); c.closePath(); },
+        A.shape(ctx, c => { c.moveTo(w.x - 11, w.y + 10); c.lineTo(w.x - 11, w.y - 8); c.arc(w.x, w.y - 8, 11, Math.PI, 0); c.lineTo(w.x + 11, w.y + 10); c.closePath(); },
           '#b8b4c8', '#3a3650', 3);
         ctx.strokeStyle = '#3a3650';
         ctx.lineWidth = 2;
@@ -118,24 +118,46 @@
       }
       const f = w.facing;
       const active = i === game.current && (game.phase === 'turn' || game.phase === 'retreat');
-      const bob = Math.sin(this.time * 3 + i) * 0.8;
+      const walking = active && game.walkDir !== 0 && w.grounded;
+      const hurtAge = view.hurt ? this.time - (view.hurt[w.id] ?? -9) : 9;
+      const hurt = hurtAge < 0.6;
+      const bob = walking ? 0 : Math.sin(this.time * 3 + i) * 0.6;
+      const squash = walking ? 1 + Math.sin(this.time * 14) * 0.12 : 1;
+      const shake = hurt ? Math.sin(hurtAge * 60) * 2 * (1 - hurtAge / 0.6) : 0;
       ctx.save();
-      ctx.translate(w.x, w.y + bob);
-      // Хвостик и тело.
-      A.shape(ctx, c => c.ellipse(-f * 8, 7, 8, 4.5, 0, 0, Math.PI * 2), '#ff9fba', '#7a2f4a', 2.5);
-      A.shape(ctx, c => c.ellipse(0, 0, 9, 12, 0, 0, Math.PI * 2), '#ffb3c8', '#7a2f4a', 2.5);
-      A.shape(ctx, c => c.ellipse(f * 2, 4, 5, 6, 0, 0, Math.PI * 2), '#ffd3df', null);
-      // Глаза смотрят по прицелу.
+      ctx.translate(w.x + shake, w.y + C.WORM_R);
+      ctx.scale(1.45 * squash, 1.45 / squash);
+      ctx.translate(0, bob);
+      const skin = '#ffb3c8', line = '#7a2f4a';
+      A.blob(ctx, [[-f * 10, -3, 4.5], [-f * 5, -4, 6], [0, -7, 8.5], [f * 2, -17, 9]], skin, line, 2.2);
+      A.shape(ctx, c => c.ellipse(f * 3, -7, 4.5, 5.5, 0, 0, Math.PI * 2), '#ffd6e2', null);
+      ctx.strokeStyle = 'rgba(122,47,74,0.35)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (const yy of [-3, -6]) { ctx.moveTo(-f * 6, yy); ctx.quadraticCurveTo(-f * 3, yy + 1.5, 0, yy); }
+      ctx.stroke();
+      // Глаза: смотрят по прицелу, жмурятся от урона.
       const ang = W.absoluteAim(w);
       const px = Math.cos(ang) * 1.6, py = Math.sin(ang) * 1.6;
-      for (const ex of [-3, 4]) {
-        A.shape(ctx, c => c.ellipse(f * 2 + ex, -6, 4, 5, 0, 0, Math.PI * 2), '#fff', '#3a1420', 1.5);
-        A.shape(ctx, c => A.circles(c, [[f * 2 + ex + px, -6 + py, 1.8]]), '#111', null);
+      for (const ex of [-2.5, 4.5]) {
+        const cx = f * 2 + ex * f, cy = -19;
+        if (hurt) {
+          ctx.strokeStyle = '#3a1420';
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.moveTo(cx - 3, cy - 2); ctx.lineTo(cx + 3, cy + 1); ctx.lineTo(cx - 3, cy + 3);
+          ctx.stroke();
+        } else {
+          A.shape(ctx, c => c.ellipse(cx, cy, 3.6, 4.8, 0, 0, Math.PI * 2), '#fff', '#3a1420', 1.3);
+          A.shape(ctx, c => A.circles(c, [[cx + px, cy + py + 0.5, 1.8]]), '#111', null);
+          A.shape(ctx, c => A.circles(c, [[cx + px - 0.7, cy + py - 0.4, 0.6]]), '#fff', null);
+        }
       }
-      ctx.strokeStyle = '#7a2f4a';
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = line;
+      ctx.lineWidth = 1.3;
       ctx.beginPath();
-      ctx.arc(f * 2, 2, 3, 0.2, Math.PI - 0.2);
+      if (hurt) ctx.ellipse(f * 3.5, -12, 2, 1.6, 0, 0, Math.PI * 2);
+      else ctx.arc(f * 3.5, -13.5, 2.6, 0.3, Math.PI - 0.3);
       ctx.stroke();
       ctx.restore();
 
@@ -150,10 +172,10 @@
         ctx.fillStyle = color;
         ctx.fillText(txt, w.x, y + 0.5);
       };
-      label(String(Math.max(0, w.hp)), w.y - 26, W.PLAYER_COLORS[i]);
-      label(w.name, w.y - 45, W.PLAYER_COLORS[i]);
+      label(String(Math.max(0, w.hp)), w.y - 38, W.PLAYER_COLORS[i]);
+      label(w.name, w.y - 57, W.PLAYER_COLORS[i]);
       if (active && game.phase === 'turn') {
-        const y = w.y - 62 + Math.sin(this.time * 6) * 3;
+        const y = w.y - 76 + Math.sin(this.time * 6) * 3;
         A.shape(ctx, c => { c.moveTo(w.x - 7, y - 6); c.lineTo(w.x + 7, y - 6); c.lineTo(w.x, y + 3); c.closePath(); }, W.PLAYER_COLORS[i], '#fff', 2);
       }
     }
@@ -164,7 +186,7 @@
       if (def.aim === 'target' || def.aim === 'drop') return;
       const ang = W.absoluteAim(w);
       ctx.save();
-      ctx.translate(w.x, w.y + 2);
+      ctx.translate(w.x, w.y - 2);
       ctx.rotate(ang);
       const len = weapon === 'sniper' ? 26 : weapon === 'grenade' ? 0 : 18;
       if (weapon === 'grenade') {
@@ -175,7 +197,7 @@
       }
       ctx.restore();
       // Прицел.
-      const cx = w.x + Math.cos(ang) * 55, cy = w.y + Math.sin(ang) * 55;
+      const cx = w.x + Math.cos(ang) * 65, cy = w.y - 2 + Math.sin(ang) * 65;
       ctx.strokeStyle = '#ff2b2b';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
@@ -216,6 +238,7 @@
         const k = e.t / e.life;
         if (e.type === 'blast') {
           ctx.globalAlpha = 1 - k;
+          A.shape(ctx, c => A.circles(c, [[e.x, e.y, e.r * (0.8 + k * 0.9)]]), '#ff7a1f', null);
           A.shape(ctx, c => A.circles(c, [[e.x, e.y, e.r * (0.6 + k * 0.8)]]), '#ffd23f', null);
           A.shape(ctx, c => A.circles(c, [[e.x, e.y, e.r * (0.4 + k * 0.5)]]), '#fff6c8', null);
           ctx.globalAlpha = 1;
@@ -263,6 +286,9 @@
           A.shape(ctx, c => { c.moveTo(-2, -2); c.lineTo(-12, -14); c.lineTo(-6, -14); c.lineTo(8, -2); c.closePath(); }, '#7189a3', '#1d2a38', 1.2);
           A.shape(ctx, c => { c.moveTo(-22, 0); c.lineTo(-26, -9); c.lineTo(-18, -2); c.closePath(); }, '#d23b3b', '#1d2a38', 1.2);
           ctx.restore();
+        } else if (e.type === 'dim') {
+          ctx.fillStyle = `rgba(20, 10, 40, ${0.35 * Math.sin(Math.PI * k)})`;
+          ctx.fillRect(0, 0, C.WORLD_W, C.WORLD_H);
         } else if (e.type === 'banner') {
           ctx.globalAlpha = k < 0.15 ? k / 0.15 : k > 0.75 ? (1 - k) / 0.25 : 1;
           ctx.font = `bold 40px ${FONT}`;

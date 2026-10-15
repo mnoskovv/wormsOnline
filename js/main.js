@@ -26,9 +26,11 @@
         fx.push({ type: 'tracer', x1: e.x1, y1: e.y1, x2: e.x2, y2: e.y2, t: 0, life: 0.15 });
         break;
       case 'damage':
+        m.hurt[e.worm.id] = m.renderer.time;
         fx.push({ type: 'number', x: e.worm.x, y: e.worm.y - 60, text: `-${e.dmg}`, t: 0, life: 1.4 });
         break;
       case 'fallDamage':
+        m.hurt[e.worm.id] = m.renderer.time;
         fx.push({ type: 'number', x: e.worm.x, y: e.worm.y - 60, text: `-${e.amount}`, t: 0, life: 1.4 });
         break;
       case 'teleport':
@@ -48,6 +50,7 @@
         break;
       case 'turnStart': {
         const w = m.game.worms[e.player];
+        fx.unshift({ type: 'dim', t: 0, life: 0.5 });
         fx.push({ type: 'banner', text: `Ход: ${w.name}`, color: W.PLAYER_COLORS[e.player], t: 0, life: 1.4 });
         m.input.resetHeld();
         break;
@@ -88,7 +91,7 @@
     const art = new W.TerrainArt(map);
     const game = W.createGame({ terrain: art.buildTerrain(), spawnXs: map.spawnXs, names,
       seed: Math.floor(Math.random() * 1e9) });
-    const m = { map, art, game, renderer, effects: [], mapId, names, running: true };
+    const m = { map, art, game, renderer, effects: [], hurt: {}, mapId, names, running: true };
     m.panel = W.UI && W.UI.weaponPanel;
     // Панель создаётся лениво при первом открытии.
     m.input = new W.Input(canvas, renderer, {
@@ -118,10 +121,15 @@
         if (W.onGameEvent) W.onGameEvent(m, e);
       }
       tickSounds(m);
+      for (const p of m.game.projectiles) {
+        if (p.kind === 'bazooka' || p.kind === 'airstrike' || p.kind === 'mortar') {
+          m.effects.push({ type: 'smoke', x: p.x - p.vx * 0.02, y: p.y - p.vy * 0.02, size: 4, t: 0, life: 0.6 });
+        }
+      }
       m.input.update(dt);
       if (m.game.phase !== 'turn' && m.panel && m.panel.isOpen()) m.panel.close();
       updateEffects(m.effects, dt);
-      renderer.draw(m.game, map, art, { charge: m.input.charge, hoverTarget: m.input.hover, effects: m.effects, hideGameOver: m.resultShown });
+      renderer.draw(m.game, map, art, { charge: m.input.charge, hoverTarget: m.input.hover, effects: m.effects, hurt: m.hurt, hideGameOver: m.resultShown });
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
