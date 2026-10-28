@@ -51,7 +51,8 @@
       case 'turnStart': {
         const w = m.game.worms[e.player];
         fx.unshift({ type: 'dim', t: 0, life: 0.5 });
-        fx.push({ type: 'banner', text: `Ход: ${w.name}`, color: W.PLAYER_COLORS[e.player], t: 0, life: 1.4 });
+        const mine = m.net && e.player === m.net.me;
+        fx.push({ type: 'banner', text: mine ? 'Твой ход!' : `Ход: ${w.name}`, color: W.PLAYER_COLORS[e.player], t: 0, life: 1.4 });
         m.input.resetHeld();
         break;
       }
@@ -83,20 +84,32 @@
     }
   }
 
-  W.startMatch = function ({ mapId, names }) {
+  W.startMatch = function ({ mapId, names, seed, net }) {
     W.stopMatch();
     const map = W.MAPS[mapId];
     const canvas = document.getElementById('game');
     const renderer = W.renderer || (W.renderer = new W.Renderer(canvas));
     const art = new W.TerrainArt(map);
     const game = W.createGame({ terrain: art.buildTerrain(), spawnXs: map.spawnXs, names,
-      seed: Math.floor(Math.random() * 1e9) });
-    const m = { map, art, game, renderer, effects: [], hurt: {}, mapId, names, running: true };
+      seed: seed ?? Math.floor(Math.random() * 1e9) });
+    const m = { map, art, game, renderer, effects: [], hurt: {}, mapId, names, running: true, net: net || null, inbox: [] };
+    if (net) {
+      // Сеть: считает только тот, чей ход; события чужого хода приходят в inbox.
+      m.sync = new W.Sync(game, net.me, net.send);
+      m.remoteCharge = null;
+      if (!m.sync.authority) game.events.length = 0; // начало хода пришлёт соперник
+      m.receive = (msg) => {
+        const r = m.sync.receive(msg);
+        if (!r) return;
+        m.inbox.push(...r.events);
+        m.remoteCharge = r.charge;
+      };
+    }
     m.panel = W.UI && W.UI.weaponPanel;
     // Панель создаётся лениво при первом открытии.
     m.input = new W.Input(canvas, renderer, {
       getGame: () => m.game,
-      canControl: () => true, // хотсит: управляет тот, чей ход
+      canControl: () => !net || m.game.current === net.me, // хотсит: управляет тот, чей ход
       send: (player, cmd) => {
         const ok = W.applyCommand(m.game, player, cmd);
         if (ok && cmd.type === 'fire' && m.panel) m.panel.close();
@@ -106,16 +119,23 @@
       isPanelOpen: () => !!(m.panel && m.panel.isOpen()),
     });
     let acc = 0, last = performance.now();
-    function frame(now) {
+    // В сети фоновая вкладка получает таймеры примерно раз в секунду — догоняем до 1 с.
+    function tick(now, draw) {
       if (!m.running) return;
-      const dt = Math.min(0.25, (now - last) / 1000);
+      const dt = Math.min(net ? 1 : 0.25, (now - last) / 1000);
       last = now;
       acc += dt;
+      let stepped = false;
       while (acc >= C.DT) {
+        // Ход мог перейти сопернику прямо на этом шаге — дальше не считаем.
+        if (m.sync && !m.sync.authority) { acc = 0; break; }
         W.stepGame(m.game, C.DT);
+        stepped = true;
         acc -= C.DT;
       }
-      const events = m.game.events.splice(0);
+      const local = m.game.events.splice(0);
+      if (m.sync && (local.length || (stepped && m.game.phase !== 'gameover'))) m.sync.publish(local, m.input.charge);
+      const events = m.inbox.splice(0).concat(local);
       for (const e of events) {
         spawnEffects(m, e);
         if (W.onGameEvent) W.onGameEvent(m, e);
@@ -129,10 +149,16 @@
       m.input.update(dt);
       if (m.game.phase !== 'turn' && m.panel && m.panel.isOpen()) m.panel.close();
       updateEffects(m.effects, dt);
-      renderer.draw(m.game, map, art, { charge: m.input.charge, hoverTarget: m.input.hover, effects: m.effects, hurt: m.hurt, hideGameOver: m.resultShown });
-      requestAnimationFrame(frame);
+      if (!draw) return;
+      const charge = m.sync && !m.sync.authority ? m.remoteCharge : m.input.charge;
+      renderer.draw(m.game, map, art, { charge, hoverTarget: m.input.hover, effects: m.effects, hurt: m.hurt, hideGameOver: m.resultShown });
+    }
+    function frame(now) {
+      tick(now, true);
+      if (m.running) requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
+    if (net) m.interval = setInterval(() => { if (document.hidden) tick(performance.now(), false); }, 100);
     match = m;
     W.match = m;
     return m;
@@ -199,6 +225,7 @@
   W.stopMatch = function () {
     if (!match) return;
     match.running = false;
+    clearInterval(match.interval);
     match.input.destroy();
     if (match.panel) match.panel.close();
     match = null;
