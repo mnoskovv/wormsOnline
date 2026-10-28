@@ -66,7 +66,7 @@
       case 'hello':
         if (role !== 'host' || W.match && W.match.running) return;
         if (msg.v !== W.NET_VERSION) {
-          session.send({ t: 'reject', reason: 'version' });
+          session.reject('version');
           return;
         }
         guestName = String(msg.name || 'Игрок 2').slice(0, 14);

@@ -27,6 +27,7 @@
       s.closed = true;
       s.timers.forEach(clearInterval);
       s.timers.forEach(clearTimeout);
+      clearInterval(s.ping);
       if (s.peer) setTimeout(() => s.peer.destroy(), 300);
     };
     s.close = () => {
@@ -44,28 +45,48 @@
       s.shutdown();
       h.onError && h.onError(text);
     };
-    s.attach = (conn) => {
+    // Хост: забыть гостя и ждать следующего.
+    s.drop = () => {
+      clearInterval(s.ping);
+      s.conn = null;
+      s.opened = false;
+    };
+    s.reject = (reason) => {
+      const conn = s.conn;
+      s.send({ t: 'reject', reason });
+      s.drop();
+      if (conn) setTimeout(() => conn.close(), 500);
+    };
+    // События от уже забытого соединения не считаются.
+    s.attach = (conn, isHost) => {
       s.conn = conn;
       let lastSeen = Date.now();
+      const broken = () => {
+        if (conn !== s.conn) return;
+        if (s.opened) s.lost();
+        else if (isHost) s.drop();
+        else s.fail('Не удалось соединиться напрямую');
+      };
       conn.on('open', () => {
+        if (conn !== s.conn) return;
         s.opened = true;
         lastSeen = Date.now();
-        s.timers.push(setInterval(() => {
+        s.ping = setInterval(() => {
           s.send({ t: 'ping' });
           if (Date.now() - lastSeen > SILENCE_MS) s.lost();
-        }, PING_MS));
+        }, PING_MS);
         h.onOpen && h.onOpen();
       });
       conn.on('data', (msg) => {
-        if (s.closed || !msg || typeof msg !== 'object') return;
+        if (s.closed || conn !== s.conn || !msg || typeof msg !== 'object') return;
         lastSeen = Date.now();
         if (msg.t === 'ping') return;
         if (msg.t === 'bye') { s.lost(); return; }
         if (msg.t === 'reject') s.shutdown(); // дальше сообщит onMessage, без «отключился»
         h.onMessage && h.onMessage(msg);
       });
-      conn.on('close', () => (s.opened ? s.lost() : s.fail('Не удалось соединиться напрямую')));
-      conn.on('error', () => (s.opened ? s.lost() : s.fail('Не удалось соединиться напрямую')));
+      conn.on('close', broken);
+      conn.on('error', broken);
     };
     return s;
   }
@@ -79,7 +100,12 @@
       function start() {
         const code = randomCode();
         const peer = s.peer = new window.Peer(PREFIX + code);
-        peer.on('open', () => { s.code = code; h.onRoom && h.onRoom(code); });
+        // После переподключения к своднику 'open' приходит снова — лобби показываем один раз.
+        peer.on('open', () => {
+          if (s.code) return;
+          s.code = code;
+          h.onRoom && h.onRoom(code);
+        });
         peer.on('connection', (conn) => {
           if (s.closed) return;
           if (s.conn) {
@@ -90,11 +116,16 @@
             });
             return;
           }
-          s.attach(conn);
+          s.attach(conn, true);
         });
         peer.on('error', (err) => {
           if (s.closed || peer !== s.peer) return;
-          if (err.type === 'unavailable-id' && --tries > 0) { peer.destroy(); start(); return; }
+          if (err.type === 'unavailable-id') {
+            // Код занят при создании — берём другой. После создания комнаты пира не трогаем: в нём живой бой.
+            if (!s.code && --tries > 0) { peer.destroy(); start(); }
+            else if (!s.code) s.fail(errorText(err));
+            return;
+          }
           if (!s.opened) s.fail(errorText(err));
         });
         // Сводник отвалился: открытое соединение живёт само, переподключаемся для новых гостей.
