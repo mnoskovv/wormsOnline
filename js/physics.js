@@ -16,7 +16,6 @@
   function startFalling(w) {
     w.grounded = false;
     w.fallStartY = w.y;
-    w.jumped = false;
     w.flip = false;
   }
 
@@ -26,14 +25,8 @@
     w.vx = 0;
     w.vy = 0;
     const fall = w.y - w.fallStartY;
+    // Урона от падения нет: умирают только от оружия и в воде.
     events.push({ type: 'land', worm: w, fall });
-    if (fall > C.FALL_SAFE && !w.dead) {
-      const amount = Math.floor(Math.min(C.FALL_MAX, (fall - C.FALL_SAFE) / C.FALL_DIV));
-      if (amount > 0) {
-        w.hp -= amount;
-        events.push({ type: 'fallDamage', worm: w, amount });
-      }
-    }
   }
 
   function walk(w, t, dir, dt) {
@@ -79,8 +72,7 @@
       const ny = w.y + sy;
       if (free(t, w.x, ny)) {
         w.y = ny;
-        // Высота своего прыжка не считается падением: урон только ниже точки толчка.
-        if (w.y < w.fallStartY && !w.jumped) w.fallStartY = w.y;
+        if (w.y < w.fallStartY) w.fallStartY = w.y;
       } else if (sy > 0) {
         land(w, events);
         return;
@@ -127,7 +119,6 @@
     w.vx = (back ? C.BACKJUMP_VX : C.JUMP_VX) * w.facing;
     w.vy = back ? C.BACKJUMP_VY : C.JUMP_VY;
     startFalling(w);
-    w.jumped = true;
     w.flip = back;
   };
 

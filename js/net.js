@@ -1,6 +1,6 @@
 // Связь двух браузеров через PeerJS (WebRTC). Своего сервера нет: брокер PeerJS только знакомит.
 (function (W) {
-  W.NET_VERSION = 2;
+  W.NET_VERSION = 3;
   const PREFIX = 'chervyachki-';
   const ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
   const PING_MS = 1000, SILENCE_MS = 8000, JOIN_TIMEOUT_MS = 15000;

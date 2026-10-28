@@ -18,7 +18,6 @@
       w.vy += ny * dmg * 6 - dmg * 3;
       w.grounded = false;
       w.fallStartY = w.y;
-      w.jumped = false;
       w.flip = false;
       hits.push({ worm: w, dmg });
     }

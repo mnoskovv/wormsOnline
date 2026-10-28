@@ -23,16 +23,14 @@ function settled(x, t) {
   return w;
 }
 
-test('worm falls onto ground and takes capped fall damage', () => {
+test('a long fall does no damage', () => {
   const t = ground();
-  const w = W.makeWorm(0, 'A', 800, 300);
+  const w = W.makeWorm(0, 'A', 800, 100);
   const ev = run(w, t, 3);
   assert.ok(w.grounded);
   assert.ok(Math.abs(w.y - 490) <= 1, `y=${w.y}`);
-  const dmg = ev.filter(e => e.type === 'fallDamage');
-  assert.strictEqual(dmg.length, 1);
-  assert.strictEqual(dmg[0].amount, 30);
-  assert.strictEqual(w.hp, 70);
+  assert.strictEqual(ev.filter(e => e.type === 'fallDamage').length, 0);
+  assert.strictEqual(w.hp, 100);
 });
 
 test('short fall does no damage', () => {
@@ -130,7 +128,7 @@ test('back flip is high with a small backward shift and no fall damage', () => {
   assert.strictEqual(w.hp, 100);
 });
 
-test('jumping down from a high ledge still hurts', () => {
+test('jumping down from a high ledge does not hurt', () => {
   const t = ground();
   t.fillRect(700, 380, 110, 120); // уступ 120 px
   const w = W.makeWorm(0, 'A', 790, 360);
@@ -139,7 +137,7 @@ test('jumping down from a high ledge still hurts', () => {
   W.jumpWorm(w, false);
   run(w, t, 3);
   assert.ok(w.grounded && w.y > 480, `y=${w.y}`);
-  assert.ok(w.hp < 100, `hp=${w.hp}`);
+  assert.strictEqual(w.hp, 100);
 });
 
 test('walking is brisker than a crawl', () => {
