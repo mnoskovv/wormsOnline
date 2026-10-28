@@ -51,9 +51,12 @@
     W.startMatch({ mapId: start.mapId, names: start.names, seed: start.seed, net: { me, send: session.send } });
   }
 
+  // Первая игра — на выбранной карте, каждая следующая — на другой.
   function hostStart() {
     const order = UI.MAP_ORDER;
-    const mapId = hostInfo.mapId === 'random' ? order[Math.floor(Math.random() * order.length)] : hostInfo.mapId;
+    const mapId = hostInfo.lastMap ? W.nextMap(order, hostInfo.lastMap)
+      : hostInfo.mapId === 'random' ? order[Math.floor(Math.random() * order.length)] : hostInfo.mapId;
+    hostInfo.lastMap = mapId;
     const start = { t: 'start', seed: Math.floor(Math.random() * 1e9), mapId, names: [hostInfo.name, guestName] };
     session.send(start);
     play(start, 0);

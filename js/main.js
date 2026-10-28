@@ -231,7 +231,7 @@
       const g = m.game;
       const draw = g.winner === 'draw';
       W.UI.showResult(draw ? null : g.worms[g.winner].name, draw ? '#5a6b8c' : W.PLAYER_COLORS[g.winner],
-        m.net ? () => W.Online.again() : () => W.startMatch({ mapId: m.mapId, names: m.names, bot: !!m.bot }),
+        m.net ? () => W.Online.again() : () => W.startMatch({ mapId: W.nextMap(W.UI.MAP_ORDER, m.mapId), names: m.names, bot: !!m.bot }),
         m.net ? () => { W.stopMatch(); W.Online.toMenu(); } : () => W.showMenu());
     }, 1500);
   };

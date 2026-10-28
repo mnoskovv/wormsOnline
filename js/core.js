@@ -32,5 +32,12 @@
   };
 
   W.clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+
+  // Карта для следующей игры: случайная, но не та же, что была.
+  W.nextMap = function (order, current, rand = Math.random) {
+    const rest = order.filter(id => id !== current);
+    if (!rest.length) return current;
+    return rest[Math.floor(rand() * rest.length)];
+  };
   W.dist = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
 })(window.W = window.W || {});
