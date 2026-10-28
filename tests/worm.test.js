@@ -48,7 +48,7 @@ test('walking right for 1s moves about WALK_SPEED', () => {
   const t = ground();
   const w = settled(800, t);
   run(w, t, 1, 1);
-  assert.ok(Math.abs(w.x - 850) <= 2, `x=${w.x}`);
+  assert.ok(Math.abs(w.x - 800 - W.CFG.WALK_SPEED) <= 3, `x=${w.x}`);
   assert.strictEqual(w.facing, 1);
 });
 
@@ -98,4 +98,50 @@ test('a dead worm keeps falling until its grave lands', () => {
   assert.ok(Math.abs(w.y - 490) <= 1, `y=${w.y}`);
   assert.strictEqual(ev.filter(e => e.type === 'fallDamage').length, 0);
   assert.strictEqual(W.isWormResting(w), true);
+});
+
+// Прыжок до приземления: высота подъёма и смещение по x.
+function jumpArc(back) {
+  const t = ground();
+  const w = settled(800, t);
+  const y0 = w.y;
+  let top = 0;
+  W.jumpWorm(w, back);
+  const ev = [];
+  for (let i = 0; i < 300 && (i === 0 || !w.grounded); i++) {
+    ev.push(...W.stepWorm(w, t, 0, DT));
+    top = Math.max(top, y0 - w.y);
+  }
+  return { w, top, dx: w.x - 800, ev };
+}
+
+test('forward jump is long and low', () => {
+  const { top, dx, w } = jumpArc(false);
+  assert.ok(dx >= 85, `dx=${dx}`);
+  assert.ok(top <= 40, `top=${top}`);
+  assert.strictEqual(w.hp, 100);
+});
+
+test('back flip is high with a small backward shift and no fall damage', () => {
+  const { top, dx, w, ev } = jumpArc(true);
+  assert.ok(top >= 70, `top=${top}`);
+  assert.ok(dx < 0 && dx >= -40, `dx=${dx}`);
+  assert.strictEqual(ev.filter(e => e.type === 'fallDamage').length, 0);
+  assert.strictEqual(w.hp, 100);
+});
+
+test('jumping down from a high ledge still hurts', () => {
+  const t = ground();
+  t.fillRect(700, 380, 110, 120); // уступ 120 px
+  const w = W.makeWorm(0, 'A', 790, 360);
+  run(w, t, 0.5);
+  assert.ok(w.grounded);
+  W.jumpWorm(w, false);
+  run(w, t, 3);
+  assert.ok(w.grounded && w.y > 480, `y=${w.y}`);
+  assert.ok(w.hp < 100, `hp=${w.hp}`);
+});
+
+test('walking is brisker than a crawl', () => {
+  assert.ok(W.CFG.WALK_SPEED >= 65 && W.CFG.WALK_SPEED <= 75);
 });

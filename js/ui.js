@@ -231,7 +231,7 @@
             <button class="btn-join">Подключиться</button>
             <input class="code hidden" maxlength="300" placeholder="код или ссылка">
           </div>
-          <div class="help">← → ходить · Enter прыжок · Backspace прыжок назад · мышь — прицел · пробел/ЛКМ — выстрел · Tab/ПКМ — оружие · 1–5 — таймер гранаты</div>
+          <div class="help">← → ходить · Enter прыжок · Backspace сальто назад · мышь — прицел · пробел/ЛКМ — выстрел · Tab/ПКМ — оружие · 1–5 — таймер гранаты</div>
         </div>`;
       const maps = menu.querySelector('.maps');
       for (const id of [...MAP_ORDER, 'random']) {

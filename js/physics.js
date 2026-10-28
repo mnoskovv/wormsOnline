@@ -16,6 +16,7 @@
   function startFalling(w) {
     w.grounded = false;
     w.fallStartY = w.y;
+    w.jumped = false;
   }
 
   function land(w, events) {
@@ -76,7 +77,8 @@
       const ny = w.y + sy;
       if (free(t, w.x, ny)) {
         w.y = ny;
-        if (w.y < w.fallStartY) w.fallStartY = w.y;
+        // Высота своего прыжка не считается падением: урон только ниже точки толчка.
+        if (w.y < w.fallStartY && !w.jumped) w.fallStartY = w.y;
       } else if (sy > 0) {
         land(w, events);
         return;
@@ -123,6 +125,7 @@
     w.vx = (back ? C.BACKJUMP_VX : C.JUMP_VX) * w.facing;
     w.vy = back ? C.BACKJUMP_VY : C.JUMP_VY;
     startFalling(w);
+    w.jumped = true;
   };
 
   // Нормаль поверхности в точке: от центра масс твёрдых пикселей вокруг.
