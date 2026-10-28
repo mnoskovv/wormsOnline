@@ -144,10 +144,13 @@
     return cv;
   }
 
-  let menu = null, result = null;
+  let menu = null, result = null, screen = null;
+  UI.store = store;
+  UI.MAP_ORDER = MAP_ORDER;
 
-  UI.showMenu = function (onStart) {
+  UI.showMenu = function (onStart, onHost, onJoinCode) {
     UI.hideResult();
+    if (screen) screen.classList.add('hidden');
     if (!menu) {
       menu = document.createElement('div');
       menu.className = 'menu';
@@ -162,9 +165,10 @@
           <div class="maps"></div>
           <button class="btn-start">Хотсит — в бой!</button>
           <div class="online">
-            <button disabled>Создать игру</button>
-            <button disabled>Подключиться</button>
-            <span>по сети — скоро</span>
+            <span>По сети:</span>
+            <button class="btn-host">Создать игру</button>
+            <button class="btn-join">Подключиться</button>
+            <input class="code hidden" maxlength="300" placeholder="код или ссылка">
           </div>
           <div class="help">← → ходить · Enter прыжок · Backspace прыжок назад · мышь — прицел · пробел/ЛКМ — выстрел · Tab/ПКМ — оружие</div>
         </div>`;
@@ -191,10 +195,28 @@
       for (const c of menu.querySelectorAll('.map-card')) c.classList.toggle('selected', c.dataset.id === id);
     }
     select(chosen);
-    menu.querySelector('.btn-start').onclick = () => {
+    const readNames = () => {
       const n = [...inputs].map((inp, i) => inp.value.trim() || `Игрок ${i + 1}`);
       store.set('names', n);
       store.set('map', chosen);
+      return n;
+    };
+    menu.querySelector('.btn-host').onclick = () => onHost({ mapId: chosen, name: readNames()[0] });
+    const code = menu.querySelector('.code');
+    code.classList.add('hidden');
+    code.value = '';
+    const submitCode = () => {
+      const v = code.value.trim();
+      const m = v.match(/room=([a-z0-9]+)/i);
+      const c = (m ? m[1] : v).toLowerCase();
+      if (c) { readNames(); onJoinCode(c); }
+    };
+    menu.querySelector('.btn-join').onclick = () => {
+      if (code.classList.contains('hidden')) { code.classList.remove('hidden'); code.focus(); } else submitCode();
+    };
+    code.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') submitCode(); };
+    menu.querySelector('.btn-start').onclick = () => {
+      const n = readNames();
       menu.classList.add('hidden');
       const mapId = chosen === 'random' ? MAP_ORDER[Math.floor(Math.random() * MAP_ORDER.length)] : chosen;
       onStart({ mapId, names: n });
@@ -218,6 +240,80 @@
   };
 
   UI.hideResult = function () { if (result) result.classList.add('hidden'); };
+
+  // Экран-карточка поверх неба: лобби, вход по ссылке, сообщения.
+  function showScreen(build) {
+    UI.hideResult();
+    if (menu) menu.classList.add('hidden');
+    if (!screen) {
+      screen = document.createElement('div');
+      screen.className = 'menu screen';
+      document.getElementById('ui').append(screen);
+    }
+    screen.innerHTML = '<div class="menu-card screen-card"><h1 class="logo">Червячки</h1></div>';
+    build(screen.firstChild);
+    screen.classList.remove('hidden');
+  }
+
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  UI.hideScreens = function () {
+    UI.hideResult();
+    if (screen) screen.classList.add('hidden');
+    if (menu) menu.classList.add('hidden');
+  };
+
+  UI.showLobby = function (link, onCancel) {
+    showScreen(card => {
+      card.append(el('div', 'screen-text', 'Отправь ссылку сопернику:'));
+      const inp = el('input', 'link');
+      inp.value = link;
+      inp.readOnly = true;
+      inp.onclick = () => inp.select();
+      const copy = el('button', 'btn-start', 'Скопировать ссылку');
+      copy.onclick = () => {
+        navigator.clipboard.writeText(link).then(() => { copy.textContent = 'Скопировано!'; },
+          () => { inp.focus(); inp.select(); });
+      };
+      const cancel = el('button', 'btn-menu', 'Отмена');
+      cancel.onclick = onCancel;
+      card.append(inp, el('div', 'screen-wait', 'Ждём соперника…'), copy, cancel);
+    });
+  };
+
+  UI.showJoin = function (code, defaultName, onConnect, onMenu) {
+    showScreen(card => {
+      card.append(el('div', 'screen-text', `Комната ${code}. Как тебя зовут?`));
+      const inp = el('input', 'link');
+      inp.maxLength = 14;
+      inp.value = defaultName;
+      const go = el('button', 'btn-start', 'В бой!');
+      const submit = () => onConnect(inp.value.trim() || 'Игрок 2');
+      go.onclick = submit;
+      inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') submit(); };
+      const back = el('button', 'btn-menu', 'В меню');
+      back.onclick = onMenu;
+      card.append(inp, el('br'), go, back);
+      setTimeout(() => inp.focus(), 0);
+    });
+  };
+
+  // onMenu = null — без кнопки (ждём чего-то от соперника).
+  UI.showNotice = function (text, onMenu, buttonText = 'В меню') {
+    showScreen(card => {
+      card.append(el('div', 'screen-wait', text));
+      if (onMenu) {
+        const b = el('button', 'btn-menu', buttonText);
+        b.onclick = onMenu;
+        card.append(b);
+      }
+    });
+  };
 })(window.W = window.W || {});
 
 // Кнопка звука в углу.

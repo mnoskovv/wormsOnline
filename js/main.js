@@ -207,7 +207,7 @@
 
   W.showMenu = function () {
     W.stopMatch();
-    W.UI.showMenu(opts => W.startMatch(opts));
+    W.UI.showMenu(opts => W.startMatch(opts), opts => W.Online.host(opts), code => W.Online.joinCode(code));
   };
 
   W.onGameOver = function (m) {
@@ -217,8 +217,8 @@
       const g = m.game;
       const draw = g.winner === 'draw';
       W.UI.showResult(draw ? null : g.worms[g.winner].name, draw ? '#5a6b8c' : W.PLAYER_COLORS[g.winner],
-        () => W.startMatch({ mapId: m.mapId, names: m.names }),
-        () => W.showMenu());
+        m.net ? () => W.Online.again() : () => W.startMatch({ mapId: m.mapId, names: m.names }),
+        m.net ? () => { W.stopMatch(); W.Online.toMenu(); } : () => W.showMenu());
     }, 1500);
   };
 
