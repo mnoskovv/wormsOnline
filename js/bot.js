@@ -124,8 +124,121 @@
     return false;
   }
 
-  // Бот за столом: думает, наводится, заряжает и стреляет — всё видно игроку.
-  // Если не достаёт до врага, подходит ближе (не больше шести раз за ход).
+  // Шаг маршрута, выполняемый по тикам. Один и тот же код крутит и копию игры, и настоящую:
+  // физика детерминирована, поэтому вживую выходит ровно то, что бот увидел на копии.
+  // kind: 'walk' — идти к цели до 2.5 с; 'jump' — прыжок к цели; 'high' — высокий прыжок назад к цели.
+  class Move {
+    constructor(kind, dir) {
+      this.kind = kind;
+      this.dir = dir;
+      this.t = 0;
+      this.phase = 'start';
+    }
+
+    // Возвращает true, когда шаг закончен.
+    tick(game, me) {
+      const w = game.worms[me];
+      this.t++;
+      if (this.phase === 'start') {
+        if (this.kind === 'walk') {
+          W.applyCommand(game, me, { type: 'walk', dir: this.dir });
+          this.phase = 'walking';
+          this.lastX = w.x;
+          this.still = 0;
+        } else {
+          // Повернуться: к цели для прыжка вперёд, спиной — для прыжка назад.
+          const face = this.kind === 'jump' ? this.dir : -this.dir;
+          W.applyCommand(game, me, { type: 'aim', angle: face === 1 ? -0.3 : Math.PI + 0.3 });
+          W.applyCommand(game, me, { type: 'jump', back: this.kind === 'high' });
+          this.phase = 'settle';
+          this.t = 0;
+        }
+        return false;
+      }
+      if (this.phase === 'walking') {
+        this.still = Math.abs(w.x - this.lastX) < 0.01 ? this.still + 1 : 0;
+        this.lastX = w.x;
+        if (this.t > 150 || this.still > 10 || (w.grounded && !safeAhead(game, w, this.dir))) {
+          W.applyCommand(game, me, { type: 'walk', dir: 0 });
+          this.phase = 'settle';
+          this.t = 0;
+        }
+        return false;
+      }
+      // settle: ждём, пока червяк встанет.
+      return (W.isWormResting(w) && this.t > 3) || this.t > 150;
+    }
+  }
+
+  // Лучший выстрел с текущего места по быстрой прикидке (грубая сетка).
+  function* quickShot(game, me) {
+    const worm = game.worms[me];
+    const enemy = game.worms.find(w => w.id !== me && !w.dead);
+    if (!enemy) return 0;
+    const dir = enemy.x >= worm.x ? 1 : -1;
+    let best = -Infinity;
+    for (let a = -1.4; a <= 0.3; a += 0.12) {
+      for (let power = 0.3; power <= 1.001; power += 0.1) {
+        const at = flight(game, worm, 'bazooka', dir === 1 ? a : Math.PI - a, power);
+        const sc = at ? estimate(game, me, 'bazooka', at) : -Infinity;
+        if (sc > best) best = sc;
+      }
+      yield null;
+    }
+    return best;
+  }
+
+  // Поиск маршрута: перебор цепочек шагов до глубины 3 на копиях игры.
+  W.planBotMove = function* (game, me) {
+    const enemy = game.worms.find(w => w.id !== me && !w.dead);
+    if (!enemy) return { moves: [], score: 0 };
+    const dir = enemy.x >= game.worms[me].x ? 1 : -1;
+    const hp0 = game.worms[me].hp;
+    function* value(g) {
+      const w = g.worms[me];
+      const shot = yield* quickShot(g, me);
+      // Подходить ближе имеет смысл, только пока выстрела нет.
+      return Math.max(0, shot) * 3 - 2 * (hp0 - w.hp) - (shot > 0 ? 0 : Math.abs(w.x - enemy.x) * 0.01);
+    }
+    const root = { g: game, moves: [], score: yield* value(game) };
+    if (root.score >= 60) return { moves: [], score: root.score }; // и так хорошо стреляем
+    let best = root;
+    let layer = [root];
+    const seen = new Set([Math.round(game.worms[me].x / 8) + ':' + Math.round(game.worms[me].y / 8)]);
+    for (let depth = 0; depth < 3; depth++) {
+      const next = [];
+      for (const node of layer) {
+        for (const kind of ['walk', 'jump', 'high']) {
+          const g = W.cloneGame(node.g);
+          g.events = [];
+          const mv = new Move(kind, dir);
+          let ok = true;
+          for (let i = 0; i < 400; i++) {
+            if (mv.tick(g, me)) break;
+            W.stepGame(g, C.DT);
+            g.events.length = 0;
+            if (g.phase !== 'turn') { ok = false; break; }
+            if (i % 5 === 4) yield null;
+          }
+          const w = g.worms[me];
+          if (!ok || w.dead || w.drowned) continue;
+          const key = Math.round(w.x / 8) + ':' + Math.round(w.y / 8);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const child = { g, moves: node.moves.concat([[kind, dir]]), score: yield* value(g) };
+          if (child.score > best.score) best = child;
+          next.push(child);
+          yield null;
+        }
+      }
+      next.sort((p, q) => q.score - p.score);
+      layer = next.slice(0, 3);
+    }
+    return { moves: best.moves, score: best.score };
+  };
+
+  // Бот за столом: выбирает, куда пройти, идёт, думает над выстрелом, наводится, заряжает, стреляет.
+  // update() зовётся каждый тик игры (C.DT), чтобы маршрут повторялся в точности.
   class BotPlayer {
     constructor(player, opts = {}) {
       this.player = player;
@@ -135,63 +248,66 @@
       this.charge = null;
     }
 
+    // Немного работы генератора за тик, чтобы не подвешивать кадр.
+    work(gen) {
+      const until = Date.now() + 8;
+      while (Date.now() < until) {
+        const r = gen.next();
+        if (r.done) return r.value;
+      }
+      return undefined;
+    }
+
     update(game, dt) {
       if (game.current !== this.player || game.phase !== 'turn') {
         this.charge = null;
         if (game.current !== this.player) this.state = 'idle';
         return;
       }
+      const me = this.player;
       if (this.turn !== game.turnNumber) {
         this.turn = game.turnNumber;
-        this.state = 'think';
+        this.state = 'route';
         this.timer = 0;
-        this.planner = W.planBotShot(game, this.player, this.opts);
-        this.shot = null;
-        this.walks = 0;
+        this.cycles = 0;
+        this.lastMoved = false;
+        this.gen = W.planBotMove(game, me);
       }
-      const me = this.player;
       this.timer += dt;
-      if (this.state === 'think') {
-        const until = Date.now() + 6;
-        while (!this.shot && Date.now() < until) {
-          const r = this.planner.next();
-          if (r.done) this.shot = r.value;
+      if (this.state === 'route') {
+        const plan = this.work(this.gen);
+        if (plan) {
+          this.moves = plan.moves.map(([kind, dir]) => new Move(kind, dir));
+          this.cycles++; // пройти некуда — второй раз искать не будем
+          this.state = this.moves.length ? 'move' : 'think';
+          if (this.state === 'think') this.gen = W.planBotShot(game, me, this.opts);
         }
-        const enemy = game.worms.find(w => w.id !== me && !w.dead);
-        const dir = enemy && enemy.x > game.worms[me].x ? 1 : -1;
-        if (this.shot && this.shot.score <= 0 && this.walks < 6 && enemy && safeAhead(game, game.worms[me], dir)) {
-          this.walks++;
-          this.state = 'walk';
-          this.timer = 0;
-          this.walkFrom = game.worms[me].x;
-          this.walkDir = dir;
-          W.applyCommand(game, me, { type: 'walk', dir });
-          return;
+      } else if (this.state === 'move') {
+        if (this.moves[0].tick(game, me)) this.moves.shift();
+        this.lastMoved = true;
+        if (!this.moves.length) {
+          this.state = 'think';
+          this.gen = W.planBotShot(game, me, this.opts);
         }
-        if (this.shot && this.timer >= 0.8) {
-          W.applyCommand(game, me, { type: 'select', weapon: this.shot.weapon });
+      } else if (this.state === 'think') {
+        const shot = this.work(this.gen);
+        if (shot) {
+          this.shot = shot;
+          // Всё ещё не достаёт — ещё один заход маршрута (если есть время).
+          if (shot.score <= 0 && this.cycles < 2 && this.moves.length === 0 && this.lastMoved && game.turnTime > 12) {
+            this.state = 'route';
+            this.lastMoved = false;
+            this.gen = W.planBotMove(game, me);
+            return;
+          }
+          W.applyCommand(game, me, { type: 'select', weapon: shot.weapon });
           this.from = W.absoluteAim(game.worms[me]);
           this.state = 'aim';
           this.timer = 0;
         }
-      } else if (this.state === 'walk') {
-        const worm = game.worms[me];
-        if (!safeAhead(game, worm, this.walkDir) || this.timer >= 1.6) {
-          W.applyCommand(game, me, { type: 'walk', dir: 0 });
-          if (Math.abs(worm.x - this.walkFrom) < 5 && this.timer >= 1.6) W.applyCommand(game, me, { type: 'jump', back: false });
-          this.state = 'rethink';
-          this.timer = 0;
-        }
-      } else if (this.state === 'rethink') {
-        // Ждём, пока червяк встанет, и думаем заново.
-        if (W.isWormResting(game.worms[me]) && this.timer >= 0.3) {
-          this.planner = W.planBotShot(game, me, this.opts);
-          this.shot = null;
-          this.state = 'think';
-          this.timer = 0.6;
-        }
       } else if (this.state === 'aim') {
-        const k = Math.min(1, this.timer / 0.6);
+        if (this.timer < 0.3) return; // короткая пауза «подумал»
+        const k = Math.min(1, (this.timer - 0.3) / 0.6);
         W.applyCommand(game, me, { type: 'aim', angle: this.from + (this.shot.angle - this.from) * k });
         if (k >= 1) { this.state = 'charge'; this.charge = 0; }
       } else if (this.state === 'charge') {
@@ -203,6 +319,8 @@
         }
       }
     }
+
+    get thinking() { return this.state === 'route' || this.state === 'think'; }
   }
 
   W.BotPlayer = BotPlayer;

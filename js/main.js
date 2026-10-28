@@ -133,10 +133,11 @@
       last = now;
       acc += dt;
       let stepped = false;
-      if (m.bot) m.bot.update(m.game, dt);
       while (acc >= C.DT) {
         // Ход мог перейти сопернику прямо на этом шаге — дальше не считаем.
         if (m.sync && !m.sync.authority) { acc = 0; break; }
+        // Бот действует по тикам: маршрут, найденный на копии, повторяется в точности.
+        if (m.bot) m.bot.update(m.game, C.DT);
         W.stepGame(m.game, C.DT);
         stepped = true;
         acc -= C.DT;
@@ -163,7 +164,7 @@
       const mineNow = m.isLocal(m.game.current);
       const charge = m.sync && !m.sync.authority ? m.remoteCharge : m.bot && !mineNow ? m.bot.charge : m.input.charge;
       renderer.draw(m.game, map, art, { charge, hoverTarget: mineNow ? m.input.hover : null, effects: m.effects, hurt: m.hurt,
-        hideGameOver: m.resultShown, hints: mineNow, thinking: !!(m.bot && !mineNow && m.bot.state === 'think') });
+        hideGameOver: m.resultShown, hints: mineNow, thinking: !!(m.bot && !mineNow && m.bot.thinking) });
     }
     function frame(now) {
       tick(now, true);

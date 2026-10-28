@@ -167,10 +167,8 @@
     const active = game.worms[game.current];
     for (const w of game.worms) {
       const dir = acting && w === active ? game.walkDir : 0;
-      for (const e of W.stepWorm(w, game.terrain, dir, dt)) {
-        game.events.push(e);
-        if (e.type === 'fallDamage' && w === active && acting) endTurn(game);
-      }
+      // Урон от падения просто снимает хп — ход не отнимает.
+      for (const e of W.stepWorm(w, game.terrain, dir, dt)) game.events.push(e);
     }
     W.updateProjectiles(game, dt);
     if ((game.phase === 'turn' || game.phase === 'retreat') && game.worms.some(w => w.dead)) endTurn(game);

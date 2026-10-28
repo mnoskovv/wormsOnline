@@ -99,3 +99,40 @@ test('bot does not walk off a cliff into the water', () => {
   run(g, 12, () => bot.update(g, DT));
   assert.ok(!g.worms[1].drowned, 'bot drowned');
 });
+
+test('bot gets over a step that it cannot walk up', () => {
+  const t = new W.Terrain(1600, 800);
+  t.fillRect(0, 500, 1600, 300);
+  t.fillRect(0, 470, 1250, 30); // уступ 30 px: пешком не забраться
+  let g;
+  for (let seed = 1; ; seed++) {
+    g = W.createGame({ terrain: t, spawnXs: [150, 1450], names: ['A', 'B'], seed });
+    if (g.current === 1) break;
+  }
+  g.wind = 0;
+  const bot = new W.BotPlayer(1, { rand: () => 0.5, error: 0 });
+  run(g, 25, () => bot.update(g, DT));
+  const passed = g.worms[1].x < 1240 || g.worms[0].hp < 100;
+  assert.ok(passed, `bot stuck at ${g.worms[1].x}, enemy hp ${g.worms[0].hp}`);
+  assert.ok(!g.worms[1].drowned);
+});
+
+test('bot still fires when it can neither reach nor walk', () => {
+  const t = new W.Terrain(1600, 800);
+  t.fillRect(0, 500, 200, 300);
+  t.fillRect(1400, 500, 200, 300);
+  let g;
+  for (let seed = 1; ; seed++) {
+    g = W.createGame({ terrain: t, spawnXs: [100, 1500], names: ['A', 'B'], seed });
+    if (g.current === 1) break;
+  }
+  const bot = new W.BotPlayer(1, { rand: () => 0.5, error: 0 });
+  let fired = false;
+  for (let i = 0; i < 20 / DT && !fired; i++) {
+    bot.update(g, DT);
+    W.stepGame(g, DT);
+    fired = g.phase !== 'turn';
+  }
+  assert.ok(fired, 'bot never fired');
+  assert.ok(g.turnTime > 5, `fired late, ${g.turnTime.toFixed(1)} s left`);
+});

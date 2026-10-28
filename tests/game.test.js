@@ -73,18 +73,18 @@ test('skip passes the turn once everything rests', () => {
   assert.strictEqual(g.phase, 'turn');
 });
 
-test('fall damage on own turn ends the turn', () => {
+test('fall damage on own turn does not end the turn', () => {
   const t = flat();
   t.fillRect(300, 250, 200, 20);
   const g = newGame(t, [400, 1200]);
   g.current = 0;
   assert.ok(Math.abs(g.worms[0].y - 240) <= 1);
   W.applyCommand(g, 0, { type: 'walk', dir: 1 });
-  let sawSettling = false;
   for (let i = 0; i < 600 && g.worms[0].hp === 100; i++) W.stepGame(g, DT);
-  sawSettling = g.phase === 'settling' || g.current === 1;
   assert.ok(g.worms[0].hp < 100);
-  assert.ok(sawSettling, `phase=${g.phase}`);
+  assert.strictEqual(g.phase, 'turn');
+  assert.strictEqual(g.current, 0);
+  assert.ok(W.applyCommand(g, 0, { type: 'walk', dir: -1 }), 'still can act');
 });
 
 test('drowning ends the match with the other player winning', () => {
