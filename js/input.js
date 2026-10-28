@@ -85,12 +85,13 @@
           this.togglePanel();
           return;
       }
-      const m = /^Digit([1-8])$/.exec(e.code);
-      if (m && g.phase === 'turn') {
-        const n = Number(m[1]);
-        if (g.weapon[g.current] === 'grenade' && n <= 5) this.send({ type: 'fuse', seconds: n });
-        else this.send({ type: 'select', weapon: W.WEAPON_ORDER[n - 1] });
+      if (e.code === 'Escape' && this.opts.isPanelOpen()) {
+        this.opts.onTogglePanel();
+        return;
       }
+      // Оружие выбирается в окне; цифры 1–5 — только таймер гранаты.
+      const m = /^Digit([1-5])$/.exec(e.code);
+      if (m && g.phase === 'turn') this.send({ type: 'fuse', seconds: Number(m[1]) });
     }
 
     keyUp(e) {

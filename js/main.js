@@ -50,9 +50,12 @@
         break;
       case 'turnStart': {
         const w = m.game.worms[e.player];
-        fx.unshift({ type: 'dim', t: 0, life: 0.5 });
-        const mine = m.net && e.player === m.net.me;
-        fx.push({ type: 'banner', text: mine ? 'Твой ход!' : `Ход: ${w.name}`, color: W.PLAYER_COLORS[e.player], t: 0, life: 1.4 });
+        fx.unshift({ type: 'dim', t: 0, life: 0.9 });
+        // В хотсите ход у того, кто за клавиатурой, — пишем имя; в сети и с ботом — «Твой ход!».
+        const mine = (m.net || m.bot) && m.isLocal(e.player);
+        fx.push({ type: 'banner', text: mine ? 'Твой ход!' : `Ход: ${w.name}`, sub: mine ? w.name : '',
+          color: W.PLAYER_COLORS[e.player], t: 0, life: 2.2 });
+        fx.push({ type: 'ring', x: w.x, y: w.y, r: 60, color: W.PLAYER_COLORS[e.player], t: 0, life: 0.8 });
         m.input.resetHeld();
         break;
       }
@@ -84,7 +87,7 @@
     }
   }
 
-  W.startMatch = function ({ mapId, names, seed, net }) {
+  W.startMatch = function ({ mapId, names, seed, net, bot }) {
     W.stopMatch();
     const map = W.MAPS[mapId];
     const canvas = document.getElementById('game');
@@ -93,6 +96,10 @@
     const game = W.createGame({ terrain: art.buildTerrain(), spawnXs: map.spawnXs, names,
       seed: seed ?? Math.floor(Math.random() * 1e9) });
     const m = { map, art, game, renderer, effects: [], hurt: {}, mapId, names, running: true, net: net || null, inbox: [] };
+    // Кто сидит за этим экраном: в сети — свой игрок, с ботом — человек, в хотсите — оба.
+    m.isLocal = (p) => (net ? p === net.me : bot ? p !== 1 : true);
+    if (bot) m.bot = new W.BotPlayer(1);
+    m.commentary = new W.Commentary(m.isLocal);
     if (net) {
       // Сеть: считает только тот, чей ход; события чужого хода приходят в inbox.
       m.sync = new W.Sync(game, net.me, net.send);
@@ -109,7 +116,7 @@
     // Панель создаётся лениво при первом открытии.
     m.input = new W.Input(canvas, renderer, {
       getGame: () => m.game,
-      canControl: () => !net || m.game.current === net.me, // хотсит: управляет тот, чей ход
+      canControl: () => m.isLocal(m.game.current), // хотсит: управляет тот, чей ход
       send: (player, cmd) => {
         const ok = W.applyCommand(m.game, player, cmd);
         if (ok && cmd.type === 'fire' && m.panel) m.panel.close();
@@ -126,6 +133,7 @@
       last = now;
       acc += dt;
       let stepped = false;
+      if (m.bot) m.bot.update(m.game, dt);
       while (acc >= C.DT) {
         // Ход мог перейти сопернику прямо на этом шаге — дальше не считаем.
         if (m.sync && !m.sync.authority) { acc = 0; break; }
@@ -139,7 +147,9 @@
       for (const e of events) {
         spawnEffects(m, e);
         if (W.onGameEvent) W.onGameEvent(m, e);
+        for (const phrase of m.commentary.feed(e, m.game)) W.Voice.say(phrase);
       }
+      if (W.UI.weaponButton) W.UI.weaponButton.update(m);
       tickSounds(m);
       for (const p of m.game.projectiles) {
         if (p.kind === 'bazooka' || p.kind === 'airstrike' || p.kind === 'mortar') {
@@ -150,8 +160,10 @@
       if (m.game.phase !== 'turn' && m.panel && m.panel.isOpen()) m.panel.close();
       updateEffects(m.effects, dt);
       if (!draw) return;
-      const charge = m.sync && !m.sync.authority ? m.remoteCharge : m.input.charge;
-      renderer.draw(m.game, map, art, { charge, hoverTarget: m.input.hover, effects: m.effects, hurt: m.hurt, hideGameOver: m.resultShown });
+      const mineNow = m.isLocal(m.game.current);
+      const charge = m.sync && !m.sync.authority ? m.remoteCharge : m.bot && !mineNow ? m.bot.charge : m.input.charge;
+      renderer.draw(m.game, map, art, { charge, hoverTarget: mineNow ? m.input.hover : null, effects: m.effects, hurt: m.hurt,
+        hideGameOver: m.resultShown, hints: mineNow, thinking: !!(m.bot && !mineNow && m.bot.state === 'think') });
     }
     function frame(now) {
       tick(now, true);
@@ -185,6 +197,7 @@
       case 'land': if (e.fall > 20) S.play('step'); break;
       case 'bounce': S.play('bounce'); break;
       case 'jump': S.play('jump'); break;
+      case 'turnStart': S.play('turn'); break;
       case 'gameover': S.play('win'); break;
     }
   }
@@ -217,7 +230,7 @@
       const g = m.game;
       const draw = g.winner === 'draw';
       W.UI.showResult(draw ? null : g.worms[g.winner].name, draw ? '#5a6b8c' : W.PLAYER_COLORS[g.winner],
-        m.net ? () => W.Online.again() : () => W.startMatch({ mapId: m.mapId, names: m.names }),
+        m.net ? () => W.Online.again() : () => W.startMatch({ mapId: m.mapId, names: m.names, bot: !!m.bot }),
         m.net ? () => { W.stopMatch(); W.Online.toMenu(); } : () => W.showMenu());
     }, 1500);
   };
@@ -226,6 +239,7 @@
     if (!match) return;
     match.running = false;
     clearInterval(match.interval);
+    if (W.UI.weaponButton) W.UI.weaponButton.hide();
     match.input.destroy();
     if (match.panel) match.panel.close();
     match = null;

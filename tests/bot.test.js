@@ -75,3 +75,27 @@ test('bot does nothing on the other player turn', () => {
   assert.strictEqual(g.projectiles.length, 0);
   assert.strictEqual(g.worms[1].x, x);
 });
+
+test('bot walks closer when the enemy is out of reach', () => {
+  const g = gameWithFirst(1, [150, 1450]);
+  g.wind = 0;
+  const bot = new W.BotPlayer(1, { rand: () => 0.5, error: 0 });
+  const x0 = g.worms[1].x;
+  run(g, 12, () => bot.update(g, DT));
+  assert.ok(g.worms[1].x < x0 - 30, `bot moved from ${x0} to ${g.worms[1].x}`);
+  assert.ok(!g.worms[1].dead);
+});
+
+test('bot does not walk off a cliff into the water', () => {
+  const t = new W.Terrain(1600, 800);
+  t.fillRect(0, 500, 300, 300);
+  t.fillRect(1300, 500, 300, 300);
+  let g;
+  for (let seed = 1; ; seed++) {
+    g = W.createGame({ terrain: t, spawnXs: [150, 1350], names: ['A', 'B'], seed });
+    if (g.current === 1) break;
+  }
+  const bot = new W.BotPlayer(1, { rand: () => 0.5, error: 0 });
+  run(g, 12, () => bot.update(g, DT));
+  assert.ok(!g.worms[1].drowned, 'bot drowned');
+});

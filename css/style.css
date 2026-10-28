@@ -6,30 +6,57 @@ body { display: flex; align-items: center; justify-content: center; font-family:
 #ui > * { pointer-events: auto; }
 .hidden { display: none !important; }
 
+/* Окно оружия: бежевые плитки, как в Вормиксе. */
 .weapon-panel {
-  position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.96); border: 4px solid var(--player, #2f7bff); border-radius: 22px;
-  padding: 12px 16px 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3); text-align: center;
-  font-family: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(20, 12, 40, 0.35); font-family: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
 }
-.wp-title { font-weight: bold; font-size: 18px; color: var(--player, #2f7bff); margin-bottom: 8px; }
-.wp-grid { display: grid; grid-template-columns: repeat(4, 96px); gap: 8px; }
+.wp-card {
+  background: #fbf1d6; border: 5px solid #8a5a2b; border-radius: 24px; padding: 14px 18px 16px;
+  box-shadow: 0 0 0 4px var(--player, #2f7bff), 0 14px 40px rgba(0, 0, 0, 0.4); text-align: center;
+}
+.wp-title { position: relative; font-weight: bold; font-size: 24px; color: #6b3f16; margin-bottom: 10px; }
+.wp-close { position: absolute; right: 0; top: -4px; cursor: pointer; font-size: 30px; color: #a0703c; }
+.wp-close:hover { color: #6b3f16; }
+.wp-grid { display: grid; grid-template-columns: repeat(4, 112px); gap: 10px; }
 .wp-cell {
-  position: relative; height: 96px; border: 3px solid #c9d6ea; border-radius: 16px; background: #f2f7ff;
-  cursor: pointer; padding: 4px; display: flex; flex-direction: column; align-items: center; font-family: inherit;
+  position: relative; height: 112px; border: 3px solid #d9b77a; border-radius: 14px; cursor: pointer; padding: 6px 4px;
+  background: linear-gradient(#fff8e3, #f3dfae); display: flex; flex-direction: column; align-items: center; font-family: inherit;
+  box-shadow: 0 3px 0 #c9a15e;
 }
-.wp-cell:hover:not(:disabled) { border-color: var(--player, #2f7bff); background: #fff; transform: translateY(-2px); }
-.wp-cell.selected { border-color: var(--player, #2f7bff); background: #fff7cf; }
-.wp-cell:disabled { opacity: 0.35; cursor: default; }
-.wp-cell canvas { width: 56px; height: 56px; }
-.wp-name { font-size: 12px; font-weight: bold; color: #34405a; }
-.wp-key { position: absolute; top: 4px; left: 8px; font-size: 11px; color: #8a96ad; font-weight: bold; }
-.wp-ammo { position: absolute; top: 3px; right: 8px; font-size: 13px; color: #34405a; font-weight: bold; }
-.wp-skip {
-  margin-top: 10px; border: 0; border-radius: 12px; padding: 8px 18px; background: #ffb43b; color: #4a2a00;
-  font: bold 14px "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif; cursor: pointer;
+.wp-cell:hover:not(:disabled) { border-color: #8a5a2b; transform: translateY(-2px); }
+.wp-cell.selected { border-color: var(--player, #2f7bff); box-shadow: 0 0 0 3px var(--player, #2f7bff), 0 3px 0 #c9a15e; background: #fff; }
+.wp-cell:disabled { opacity: 0.35; cursor: default; filter: grayscale(1); }
+.wp-cell canvas { width: 62px; height: 62px; }
+.wp-name { font-size: 13px; font-weight: bold; color: #4a2d10; margin-top: 2px; }
+.wp-ammo {
+  position: absolute; top: 4px; right: 6px; font-size: 12px; font-weight: bold; color: #fff; background: #8a5a2b;
+  border-radius: 8px; padding: 1px 6px;
 }
+.wp-fuse { margin-top: 12px; font-weight: bold; color: #6b3f16; font-size: 14px; }
+.wp-fuse button, .wp-skip {
+  border: 2px solid #c9a15e; border-radius: 10px; padding: 5px 10px; margin-left: 4px; cursor: pointer;
+  background: #fff8e3; color: #6b3f16; font: bold 13px "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
+}
+.wp-fuse button.selected { background: #6b3f16; color: #fff; border-color: #6b3f16; }
+.wp-bottom { margin-top: 12px; display: flex; justify-content: space-between; align-items: center; }
+.wp-skip { background: #ffb43b; border-color: #d98a12; color: #4a2a00; margin: 0; padding: 7px 16px; font-size: 14px; }
 .wp-skip:hover { background: #ffc865; }
+.wp-hint { font-size: 12px; color: #a0703c; }
+
+/* Ящик с текущим оружием. */
+.weapon-btn {
+  position: absolute; top: 12px; right: 66px; display: flex; align-items: center; gap: 8px; cursor: pointer;
+  background: #fbf1d6; border: 4px solid #8a5a2b; border-radius: 18px; padding: 4px 12px 4px 6px;
+  box-shadow: 0 0 0 3px var(--player, #2f7bff), 0 6px 16px rgba(0, 0, 0, 0.25);
+  font-family: "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif; text-align: left;
+}
+.weapon-btn:hover { background: #fff; }
+.weapon-btn canvas { width: 48px; height: 48px; }
+.wb-text { display: flex; flex-direction: column; }
+.wb-text b { color: #4a2d10; font-size: 16px; }
+.wb-text i { color: #8a5a2b; font-size: 12px; font-style: normal; }
+.wb-key { font-size: 11px; color: #fff; background: #8a5a2b; border-radius: 8px; padding: 2px 6px; font-weight: bold; }
 
 .menu, .result {
   position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -63,12 +90,15 @@ body { display: flex; align-items: center; justify-content: center; font-family:
 .map-random { display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #ffb3c8, #b46bff); color: #fff; font-size: 44px; font-weight: bold; }
 .map-card:hover { border-color: #3a6ec8; transform: translateY(-2px); }
 .map-card.selected { border-color: #ffb43b; background: #fff7cf; box-shadow: 0 0 0 3px #ffb43b inset; }
+.modes { display: flex; gap: 12px; justify-content: center; }
 .btn-start, .btn-again, .btn-menu {
   margin-top: 16px; border: 0; border-radius: 16px; padding: 12px 34px; cursor: pointer;
   font: bold 22px "Arial Rounded MT Bold", "Trebuchet MS", Arial, sans-serif;
   background: #58c23a; color: #fff; box-shadow: 0 5px 0 #2f7a1a;
 }
 .btn-start:hover, .btn-again:hover { background: #6cd44c; }
+.btn-bot { background: #ff8a3b; box-shadow: 0 5px 0 #b3561a; }
+.btn-bot:hover { background: #ff9d55; }
 .btn-start:active, .btn-again:active, .btn-menu:active { transform: translateY(3px); box-shadow: 0 2px 0 #2f7a1a; }
 .btn-menu { background: #6b8ac8; box-shadow: 0 5px 0 #3a5a9a; margin-left: 10px; }
 .online { margin-top: 12px; display: flex; gap: 8px; align-items: center; justify-content: center; }

@@ -67,13 +67,24 @@
 
   let panel = null, current = null;
 
+  const ammoText = (id, n) => (n === Infinity ? '∞' : `${n}/${W.WEAPONS[id].ammo}`);
+
+  // Окно оружия: сетка плиток, как в Вормиксе, плюс таймер гранаты и пропуск хода.
   function build() {
     panel = document.createElement('div');
     panel.className = 'weapon-panel hidden';
-    panel.innerHTML = '<div class="wp-title">Оружие</div><div class="wp-grid"></div><button class="wp-skip">Пропустить ход</button>';
+    panel.innerHTML = `
+      <div class="wp-card">
+        <div class="wp-title">Оружие <span class="wp-close" title="Закрыть">×</span></div>
+        <div class="wp-grid"></div>
+        <div class="wp-fuse">Таймер гранаты: ${[1, 2, 3, 4, 5].map(n => `<button data-s="${n}">${n} с</button>`).join('')}</div>
+        <div class="wp-bottom"><button class="wp-skip">Пропустить ход</button><span class="wp-hint">Tab / ПКМ / Esc — закрыть</span></div>
+      </div>`;
     panel.addEventListener('mousedown', e => e.stopPropagation());
     panel.addEventListener('contextmenu', e => { e.preventDefault(); UI.weaponPanel.close(); });
-    W.WEAPON_ORDER.forEach((id, i) => {
+    panel.addEventListener('click', e => { if (e.target === panel) UI.weaponPanel.close(); });
+    panel.querySelector('.wp-close').addEventListener('click', () => UI.weaponPanel.close());
+    for (const id of W.WEAPON_ORDER) {
       const cell = document.createElement('button');
       cell.className = 'wp-cell';
       cell.dataset.id = id;
@@ -81,14 +92,22 @@
       cv.width = cv.height = 56 * 2;
       UI.drawWeaponIcon(cv, id);
       cell.append(cv);
-      cell.insertAdjacentHTML('beforeend', `<span class="wp-key">${i + 1}</span><span class="wp-ammo"></span><span class="wp-name">${W.WEAPONS[id].name}</span>`);
+      cell.insertAdjacentHTML('beforeend', `<span class="wp-ammo"></span><span class="wp-name">${W.WEAPONS[id].name}</span>`);
       cell.addEventListener('click', () => {
         if (!current || cell.disabled) return;
         current.input.send({ type: 'select', weapon: id });
+        if (W.Sfx) W.Sfx.play('click');
         UI.weaponPanel.close();
       });
       panel.querySelector('.wp-grid').append(cell);
-    });
+    }
+    for (const b of panel.querySelectorAll('.wp-fuse button')) {
+      b.addEventListener('click', () => {
+        if (!current) return;
+        current.input.send({ type: 'fuse', seconds: Number(b.dataset.s) });
+        UI.weaponPanel.refresh();
+      });
+    }
     panel.querySelector('.wp-skip').addEventListener('click', () => {
       if (current) current.input.send({ type: 'skip' });
       UI.weaponPanel.close();
@@ -100,20 +119,59 @@
     open(m) {
       if (!panel) build();
       current = m;
-      const g = m.game;
+      UI.weaponPanel.refresh();
+      panel.classList.remove('hidden');
+    },
+    refresh() {
+      if (!panel || !current) return;
+      const g = current.game;
       const ammo = g.ammo[g.current];
       for (const cell of panel.querySelectorAll('.wp-cell')) {
         const id = cell.dataset.id;
-        const n = ammo[id];
-        cell.querySelector('.wp-ammo').textContent = n === Infinity ? '∞' : String(n);
-        cell.disabled = n <= 0;
+        cell.querySelector('.wp-ammo').textContent = ammoText(id, ammo[id]);
+        cell.disabled = ammo[id] <= 0;
         cell.classList.toggle('selected', g.weapon[g.current] === id);
       }
+      for (const b of panel.querySelectorAll('.wp-fuse button')) b.classList.toggle('selected', Number(b.dataset.s) === g.fuse[g.current]);
       panel.style.setProperty('--player', W.PLAYER_COLORS[g.current]);
-      panel.classList.remove('hidden');
     },
     close() { if (panel) panel.classList.add('hidden'); },
     isOpen() { return !!panel && !panel.classList.contains('hidden'); },
+  };
+
+  // Ящик с текущим оружием в правом верхнем углу: видно, что выбрано, клик — открыть окно.
+  let btn = null, shown = '';
+  UI.weaponButton = {
+    update(m) {
+      if (!btn) {
+        btn = document.createElement('button');
+        btn.className = 'weapon-btn hidden';
+        btn.innerHTML = '<canvas width="96" height="96"></canvas><span class="wb-text"><b></b><i></i></span><span class="wb-key">Tab / ПКМ</span>';
+        btn.addEventListener('mousedown', e => e.stopPropagation());
+        btn.addEventListener('click', () => {
+          const mm = W.match;
+          if (mm && mm.running) { mm.input.togglePanel(); btn.blur(); }
+        });
+        document.getElementById('ui').append(btn);
+      }
+      const g = m.game;
+      const mine = m.isLocal(g.current) && (g.phase === 'turn' || g.phase === 'retreat');
+      const id = g.weapon[g.current];
+      const n = g.ammo[g.current][id];
+      const key = mine ? `${id}|${n}|${g.fuse[g.current]}|${g.current}` : '';
+      if (key === shown) return;
+      shown = key;
+      btn.classList.toggle('hidden', !mine);
+      if (!mine) return;
+      const cv = btn.querySelector('canvas');
+      cv.getContext('2d').setTransform(1, 0, 0, 1, 0, 0);
+      cv.getContext('2d').clearRect(0, 0, cv.width, cv.height);
+      UI.drawWeaponIcon(cv, id);
+      btn.querySelector('b').textContent = W.WEAPONS[id].name;
+      btn.querySelector('i').textContent = id === 'grenade' ? `таймер ${g.fuse[g.current]} с · ${ammoText(id, n)}` : ammoText(id, n);
+      btn.style.setProperty('--player', W.PLAYER_COLORS[g.current]);
+    },
+    hide() { if (btn) { btn.classList.add('hidden'); shown = ''; } },
   };
 })(window.W = window.W || {});
 
@@ -163,14 +221,17 @@
           </div>
           <div class="menu-sub">Карта</div>
           <div class="maps"></div>
-          <button class="btn-start">Хотсит — в бой!</button>
+          <div class="modes">
+            <button class="btn-start btn-bot">Против компьютера</button>
+            <button class="btn-start btn-hotseat">Вдвоём за одним компом</button>
+          </div>
           <div class="online">
             <span>По сети:</span>
             <button class="btn-host">Создать игру</button>
             <button class="btn-join">Подключиться</button>
             <input class="code hidden" maxlength="300" placeholder="код или ссылка">
           </div>
-          <div class="help">← → ходить · Enter прыжок · Backspace прыжок назад · мышь — прицел · пробел/ЛКМ — выстрел · Tab/ПКМ — оружие</div>
+          <div class="help">← → ходить · Enter прыжок · Backspace прыжок назад · мышь — прицел · пробел/ЛКМ — выстрел · Tab/ПКМ — оружие · 1–5 — таймер гранаты</div>
         </div>`;
       const maps = menu.querySelector('.maps');
       for (const id of [...MAP_ORDER, 'random']) {
@@ -215,12 +276,14 @@
       if (code.classList.contains('hidden')) { code.classList.remove('hidden'); code.focus(); } else submitCode();
     };
     code.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') submitCode(); };
-    menu.querySelector('.btn-start').onclick = () => {
+    const start = (bot) => {
       const n = readNames();
       menu.classList.add('hidden');
       const mapId = chosen === 'random' ? MAP_ORDER[Math.floor(Math.random() * MAP_ORDER.length)] : chosen;
-      onStart({ mapId, names: n });
+      onStart({ mapId, names: bot ? [n[0], 'Компьютер'] : n, bot });
     };
+    menu.querySelector('.btn-hotseat').onclick = () => start(false);
+    menu.querySelector('.btn-bot').onclick = () => start(true);
     menu.classList.remove('hidden');
   };
 

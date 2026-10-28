@@ -138,6 +138,7 @@
     },
     timerTick: () => tone({ type: 'square', f0: 880, dur: 0.06, peak: 0.15 }),
     click: () => tone({ type: 'triangle', f0: 900, f1: 600, dur: 0.05, peak: 0.15 }),
+    turn: () => [660, 880, 1320].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.16, peak: 0.25, delay: i * 0.09 })),
     win: () => [523, 659, 784, 1047].forEach((f, i) => tone({ type: 'triangle', f0: f, dur: 0.3, peak: 0.3, delay: i * 0.13 })),
   };
 
@@ -153,6 +154,35 @@
       if (master) master.gain.value = v ? 0 : 0.6;
     },
     isMuted: () => muted,
+  };
+
+  // Голос червяков: синтез речи браузера, высокий и быстрый — мультяшно.
+  let voice = null, lastSaid = {};
+  function pickVoice() {
+    const all = window.speechSynthesis.getVoices().filter(v => /^ru/i.test(v.lang));
+    voice = all.find(v => v.localService && /milena|katya|yuri/i.test(v.name)) || all.find(v => v.localService) || all[0] || null;
+  }
+  if (window.speechSynthesis) {
+    pickVoice();
+    window.speechSynthesis.addEventListener?.('voiceschanged', pickVoice);
+  }
+
+  W.Voice = {
+    say(id) {
+      const synth = window.speechSynthesis;
+      const text = W.PHRASES && W.PHRASES[id];
+      if (!W.FEATURES.voice || muted || !synth || !text) return;
+      const now = performance.now();
+      if (now - (lastSaid[id] || 0) < 700) return;
+      if (id === 'jump' && (synth.speaking || synth.pending)) return; // «Прыжок» не копим в очередь
+      lastSaid[id] = now;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = 'ru-RU';
+      if (voice) u.voice = voice;
+      u.pitch = 2;
+      u.rate = 1.3;
+      synth.speak(u);
+    },
   };
 
   window.addEventListener('pointerdown', unlock);

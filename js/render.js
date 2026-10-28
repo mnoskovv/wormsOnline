@@ -118,6 +118,14 @@
       }
       const f = w.facing;
       const active = i === game.current && (game.phase === 'turn' || game.phase === 'retreat');
+      if (active) {
+        // Светящийся круг под тем, кто ходит.
+        const pulse = 0.5 + 0.5 * Math.sin(this.time * 5);
+        ctx.save();
+        ctx.globalAlpha = 0.25 + 0.25 * pulse;
+        A.shape(ctx, c => c.ellipse(w.x, w.y + C.WORM_R, 26 + pulse * 4, 8, 0, 0, Math.PI * 2), W.PLAYER_COLORS[i], null);
+        ctx.restore();
+      }
       const walking = active && game.walkDir !== 0 && w.grounded;
       const hurtAge = view.hurt ? this.time - (view.hurt[w.id] ?? -9) : 9;
       const hurt = hurtAge < 0.6;
@@ -175,8 +183,15 @@
       label(String(Math.max(0, w.hp)), w.y - 38, W.PLAYER_COLORS[i]);
       label(w.name, w.y - 57, W.PLAYER_COLORS[i]);
       if (active && game.phase === 'turn') {
-        const y = w.y - 76 + Math.sin(this.time * 6) * 3;
-        A.shape(ctx, c => { c.moveTo(w.x - 7, y - 6); c.lineTo(w.x + 7, y - 6); c.lineTo(w.x, y + 3); c.closePath(); }, W.PLAYER_COLORS[i], '#fff', 2);
+        const y = w.y - 82 + Math.sin(this.time * 6) * 5;
+        A.shape(ctx, c => { c.moveTo(w.x - 12, y - 10); c.lineTo(w.x + 12, y - 10); c.lineTo(w.x, y + 5); c.closePath(); }, W.PLAYER_COLORS[i], '#fff', 2.5);
+        if (view.thinking) {
+          const dots = '.'.repeat(1 + Math.floor(this.time * 3) % 3);
+          A.shape(ctx, c => c.roundRect(w.x + 18, w.y - 104, 54, 26, 12), '#fff', '#5a6b8c', 2);
+          ctx.fillStyle = '#5a6b8c';
+          ctx.font = `bold 18px ${FONT}`;
+          ctx.fillText(dots, w.x + 45, w.y - 93);
+        }
       }
     }
 
@@ -290,16 +305,24 @@
           ctx.fillStyle = `rgba(20, 10, 40, ${0.35 * Math.sin(Math.PI * k)})`;
           ctx.fillRect(0, 0, C.WORLD_W, C.WORLD_H);
         } else if (e.type === 'banner') {
-          ctx.globalAlpha = k < 0.15 ? k / 0.15 : k > 0.75 ? (1 - k) / 0.25 : 1;
-          ctx.font = `bold 40px ${FONT}`;
+          // Крупная надпись по центру: выпрыгивает, держится, тает.
+          ctx.save();
+          ctx.globalAlpha = k > 0.8 ? (1 - k) / 0.2 : 1;
+          const pop = k < 0.12 ? 0.4 + (k / 0.12) * 0.75 : k < 0.2 ? 1.15 - ((k - 0.12) / 0.08) * 0.15 : 1;
+          ctx.translate(C.WORLD_W / 2, 300);
+          ctx.scale(pop, pop);
+          A.shape(ctx, c => c.roundRect(-300, -62, 600, e.sub ? 124 : 104, 30), 'rgba(255,255,255,0.94)', e.color, 6);
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.lineWidth = 8;
-          ctx.strokeStyle = '#fff';
-          ctx.strokeText(e.text, C.WORLD_W / 2, 140);
+          ctx.font = `bold 64px ${FONT}`;
           ctx.fillStyle = e.color;
-          ctx.fillText(e.text, C.WORLD_W / 2, 140);
-          ctx.globalAlpha = 1;
+          ctx.fillText(e.text, 0, e.sub ? -14 : -10);
+          if (e.sub) {
+            ctx.font = `bold 24px ${FONT}`;
+            ctx.fillStyle = '#5a6b8c';
+            ctx.fillText(e.sub, 0, 38);
+          }
+          ctx.restore();
         }
       }
     }
@@ -353,41 +376,18 @@
         ctx.moveTo(x, y - 22); ctx.lineTo(x, y + 22);
         ctx.stroke();
       }
-      // Плашка хода и таймер снизу по центру.
-      const col = W.PLAYER_COLORS[game.current];
-      const bx = C.WORLD_W / 2, by = C.WORLD_H - 28;
-      A.shape(ctx, c => c.roundRect(bx - 120, by - 20, 240, 40, 14), 'rgba(255,255,255,0.92)', col, 3);
-      ctx.font = `bold 18px ${FONT}`;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillStyle = col;
-      ctx.fillText(w.name, bx - 106, by + 1, 150);
-      const secs = game.phase === 'retreat' ? Math.ceil(game.retreatTime) : Math.ceil(game.turnTime);
-      A.shape(ctx, c => A.circles(c, [[bx + 92, by, 17]]), secs <= 5 && game.phase === 'turn' ? '#ff4a4a' : col, '#fff', 2);
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#fff';
-      ctx.fillText(String(secs), bx + 92, by + 1);
-      // Ветер.
-      const wx = C.WORLD_W - 110, wy = C.WORLD_H - 28;
-      A.shape(ctx, c => c.roundRect(wx - 90, wy - 20, 180, 40, 14), 'rgba(255,255,255,0.92)', '#5a6b8c', 3);
-      ctx.fillStyle = '#5a6b8c';
-      ctx.font = `bold 12px ${FONT}`;
-      ctx.fillText('ВЕТЕР', wx, wy - 10);
-      ctx.fillStyle = '#d8dfea';
-      ctx.fillRect(wx - 70, wy + 2, 140, 8);
-      if (game.wind !== 0) {
-        const len = (game.wind / C.WIND_MAX) * 70;
-        ctx.fillStyle = '#2f9be0';
-        ctx.fillRect(Math.min(wx, wx + len), wy + 2, Math.abs(len), 8);
-        const tip = wx + len, dir = Math.sign(len);
-        ctx.beginPath();
-        ctx.moveTo(tip + dir * 8, wy + 6);
-        ctx.lineTo(tip, wy - 2);
-        ctx.lineTo(tip, wy + 14);
-        ctx.fill();
+      this.playerPlates(game);
+      this.windAndTimer(game);
+      if (view.hints && game.phase === 'turn') {
+        const t = '← → ходить   ·   Enter прыжок   ·   Пробел / ЛКМ — выстрел   ·   Tab / ПКМ — оружие';
+        ctx.font = `bold 15px ${FONT}`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const tw = ctx.measureText(t).width + 30;
+        A.shape(ctx, c => c.roundRect(C.WORLD_W / 2 - tw / 2, C.WORLD_H - 34, tw, 26, 13), 'rgba(20,20,40,0.55)', null);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(t, C.WORLD_W / 2, C.WORLD_H - 21);
       }
-      ctx.fillStyle = '#5a6b8c';
-      ctx.fillRect(wx - 1, wy, 2, 12);
       if (game.phase === 'gameover' && !view.hideGameOver) {
         const txt = game.winner === 'draw' ? 'Ничья!' : `Победил ${game.worms[game.winner].name}!`;
         ctx.font = `bold 56px ${FONT}`;
@@ -400,6 +400,82 @@
       }
     }
   }
+
+  // Плашки игроков сверху слева: имя, полоска хп, кто ходит.
+  Renderer.prototype.playerPlates = function (game) {
+    const ctx = this.ctx;
+    game.worms.forEach((w, i) => {
+      const col = W.PLAYER_COLORS[i];
+      const x = 14, y = 12 + i * 58, wd = 330, h = 48;
+      const turn = i === game.current && game.phase !== 'gameover';
+      ctx.save();
+      if (turn) { ctx.shadowColor = col; ctx.shadowBlur = 18; }
+      A.shape(ctx, c => c.roundRect(x, y, wd, h, 16), 'rgba(255,255,255,0.93)', col, turn ? 5 : 2.5);
+      ctx.restore();
+      A.shape(ctx, c => A.circles(c, [[x + 26, y + h / 2, 17]]), col, '#fff', 2.5);
+      ctx.fillStyle = '#fff';
+      ctx.font = `bold 18px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(i + 1), x + 26, y + h / 2 + 1);
+      ctx.textAlign = 'left';
+      ctx.fillStyle = col;
+      ctx.font = `bold 15px ${FONT}`;
+      ctx.fillText(w.name, x + 52, y + 14, 170);
+      if (turn) {
+        ctx.font = `bold 12px ${FONT}`;
+        ctx.textAlign = 'right';
+        ctx.fillText('▶ ХОДИТ', x + wd - 12, y + 14);
+      }
+      const hp = Math.max(0, w.hp);
+      const bx = x + 52, by = y + 26, bw = wd - 66, bh = 14;
+      A.shape(ctx, c => c.roundRect(bx, by, bw, bh, 7), '#e4e8f0', null);
+      if (hp > 0) A.shape(ctx, c => c.roundRect(bx, by, Math.max(10, bw * Math.min(1, hp / C.HP)), bh, 7), col, null);
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+      ctx.lineWidth = 3;
+      ctx.font = `bold 12px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.strokeText(`${hp} / ${C.HP}`, bx + bw / 2, by + bh / 2 + 1);
+      ctx.fillText(`${hp} / ${C.HP}`, bx + bw / 2, by + bh / 2 + 1);
+    });
+  };
+
+  // По центру сверху: ветер (синий влево, красный вправо) и секундомер хода.
+  Renderer.prototype.windAndTimer = function (game) {
+    const ctx = this.ctx;
+    const cx = C.WORLD_W / 2, y = 22, half = 130;
+    A.shape(ctx, c => c.roundRect(cx - half - 8, y - 12, half * 2 + 16, 24, 12), 'rgba(255,255,255,0.93)', '#5a6b8c', 2.5);
+    A.shape(ctx, c => c.roundRect(cx - half, y - 5, half * 2, 10, 5), '#e4e8f0', null);
+    if (game.wind !== 0) {
+      const len = (game.wind / C.WIND_MAX) * half;
+      const col = len < 0 ? '#2f9be0' : '#ff4a4a';
+      A.shape(ctx, c => c.roundRect(Math.min(cx, cx + len), y - 5, Math.abs(len), 10, 5), col, null);
+      ctx.fillStyle = '#fff';
+      const dir = Math.sign(len);
+      for (let d = 10; d < Math.abs(len) - 4; d += 16) {
+        const ax = cx + dir * d;
+        ctx.beginPath();
+        ctx.moveTo(ax + dir * 5, y);
+        ctx.lineTo(ax - dir * 2, y - 4);
+        ctx.lineTo(ax - dir * 2, y + 4);
+        ctx.fill();
+      }
+    }
+    ctx.fillStyle = '#5a6b8c';
+    ctx.fillRect(cx - 1.5, y - 8, 3, 16);
+    const secs = game.phase === 'retreat' ? Math.ceil(game.retreatTime) : Math.ceil(game.turnTime);
+    const hot = secs <= 5 && game.phase === 'turn';
+    const col = hot ? '#ff4a4a' : W.PLAYER_COLORS[game.current];
+    const ty = y + 44;
+    A.shape(ctx, c => A.circles(c, [[cx, ty, 26]]), '#fff', col, 4);
+    A.shape(ctx, c => c.roundRect(cx - 5, ty - 34, 10, 7, 2), col, null);
+    ctx.fillStyle = col;
+    ctx.font = `bold 24px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(secs), cx, ty + 1);
+  };
 
   W.Renderer = Renderer;
 })(window.W = window.W || {});

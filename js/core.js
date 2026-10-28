@@ -10,6 +10,11 @@
     MAX_SHOT_SPEED: 900, CHARGE_TIME: 1.5, OFFWORLD_MARGIN: 200,
   };
 
+  // Флаги фич: выключенное есть в коде, но не работает.
+  W.FEATURES = {
+    voice: false, // голос червяков («Прыжок!», «Жду приказа!»…)
+  };
+
   // mulberry32
   W.rng = function (seed) {
     let a = seed >>> 0;

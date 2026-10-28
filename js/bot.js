@@ -14,7 +14,7 @@
     return g;
   };
 
-  // Быстрая прикидка полёта снаряда без отскоков: точка вместо круга, шаги по 3 px.
+  // Быстрая прикидка полёта снаряда без отскоков, шаги по 3 px.
   // Те же формулы движения, что в stepProjectile. Возвращает точку взрыва или null.
   function flight(game, worm, weapon, angle, power) {
     const p = W.launchProjectile(worm, weapon, angle, power);
@@ -31,7 +31,11 @@
         p.y += p.vy * h + 0.5 * ay * h * h;
         p.vx += ax * h;
         p.vy += ay * h;
-        if (t.isSolid(p.x, p.y)) return { x: p.x, y: p.y };
+        // Снаряд — шарик: проверяем центр и четыре края, как цепляет гребни в игре.
+        const r = p.r;
+        if (t.isSolid(p.x, p.y) || t.isSolid(p.x + r, p.y) || t.isSolid(p.x - r, p.y) || t.isSolid(p.x, p.y + r) || t.isSolid(p.x, p.y - r)) {
+          return { x: p.x, y: p.y };
+        }
         for (const w of game.worms) {
           if (w.dead || (w === worm && age < 0.1)) continue;
           if (W.dist(p.x, p.y, w.x, w.y) < p.r + R) return { x: p.x, y: p.y };
@@ -58,6 +62,7 @@
   function* simulate(game, me, shot) {
     const g = W.cloneGame(game);
     g.phase = 'turn';
+    g.current = me;
     W.applyCommand(g, me, { type: 'select', weapon: shot.weapon });
     W.applyCommand(g, me, { type: 'aim', angle: shot.angle });
     if (!W.applyCommand(g, me, { type: 'fire', power: shot.power })) return -Infinity;
@@ -79,7 +84,7 @@
   // opts.rand — случайность, opts.error — разброс прицела в радианах.
   W.planBotShot = function* (game, me, opts = {}) {
     const rand = opts.rand || Math.random;
-    const error = opts.error ?? 0.05;
+    const error = opts.error ?? 0.02;
     const worm = game.worms[me];
     const enemy = game.worms.find(w => w.id !== me && !w.dead);
     if (!enemy) return { weapon: 'bazooka', angle: -Math.PI / 2, power: 0.5, score: 0 };
@@ -100,7 +105,7 @@
     }
     found.sort((p, q) => q.score - p.score || p.miss - q.miss);
     let best = null;
-    for (const shot of found.slice(0, 4)) {
+    for (const shot of found.slice(0, 8)) {
       shot.score = yield* simulate(game, me, shot);
       if (!best || shot.score > best.score) best = shot;
     }
@@ -111,7 +116,16 @@
     });
   };
 
+  // Есть ли впереди земля, а не обрыв в воду.
+  function safeAhead(game, worm, dir) {
+    const x = worm.x + dir * 18;
+    if (x < R || x > C.WORLD_W - R) return false;
+    for (let y = worm.y - 30; y < Math.min(worm.y + 120, C.WATER_Y); y++) if (game.terrain.isSolid(x, y)) return true;
+    return false;
+  }
+
   // Бот за столом: думает, наводится, заряжает и стреляет — всё видно игроку.
+  // Если не достаёт до врага, подходит ближе (не больше шести раз за ход).
   class BotPlayer {
     constructor(player, opts = {}) {
       this.player = player;
@@ -133,6 +147,7 @@
         this.timer = 0;
         this.planner = W.planBotShot(game, this.player, this.opts);
         this.shot = null;
+        this.walks = 0;
       }
       const me = this.player;
       this.timer += dt;
@@ -142,11 +157,38 @@
           const r = this.planner.next();
           if (r.done) this.shot = r.value;
         }
+        const enemy = game.worms.find(w => w.id !== me && !w.dead);
+        const dir = enemy && enemy.x > game.worms[me].x ? 1 : -1;
+        if (this.shot && this.shot.score <= 0 && this.walks < 6 && enemy && safeAhead(game, game.worms[me], dir)) {
+          this.walks++;
+          this.state = 'walk';
+          this.timer = 0;
+          this.walkFrom = game.worms[me].x;
+          this.walkDir = dir;
+          W.applyCommand(game, me, { type: 'walk', dir });
+          return;
+        }
         if (this.shot && this.timer >= 0.8) {
           W.applyCommand(game, me, { type: 'select', weapon: this.shot.weapon });
           this.from = W.absoluteAim(game.worms[me]);
           this.state = 'aim';
           this.timer = 0;
+        }
+      } else if (this.state === 'walk') {
+        const worm = game.worms[me];
+        if (!safeAhead(game, worm, this.walkDir) || this.timer >= 1.6) {
+          W.applyCommand(game, me, { type: 'walk', dir: 0 });
+          if (Math.abs(worm.x - this.walkFrom) < 5 && this.timer >= 1.6) W.applyCommand(game, me, { type: 'jump', back: false });
+          this.state = 'rethink';
+          this.timer = 0;
+        }
+      } else if (this.state === 'rethink') {
+        // Ждём, пока червяк встанет, и думаем заново.
+        if (W.isWormResting(game.worms[me]) && this.timer >= 0.3) {
+          this.planner = W.planBotShot(game, me, this.opts);
+          this.shot = null;
+          this.state = 'think';
+          this.timer = 0.6;
         }
       } else if (this.state === 'aim') {
         const k = Math.min(1, this.timer / 0.6);
