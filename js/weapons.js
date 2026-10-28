@@ -89,10 +89,20 @@
     }, o));
   }
 
+  // Снаряды по дуге: параметры нужны и выстрелу, и боту для прикидки.
+  const SHOT_OPTS = {
+    bazooka: { kind: 'bazooka', windAffected: true, onImpact: 'bazooka' },
+    grenade: { kind: 'grenade', r: 5, bounce: 0.5, onImpact: 'grenade' },
+    mortar: { kind: 'mortar', r: 5, windAffected: true, onImpact: 'mortar' },
+  };
+  W.BLAST = { bazooka: { r: 40, dmg: 50 }, grenade: { r: 40, dmg: 45 }, mortar: { r: 30, dmg: 35 } };
+  W.launchProjectile = (worm, weapon, angle, power, fuse) =>
+    launch(worm, angle, power, Object.assign({}, SHOT_OPTS[weapon], weapon === 'grenade' ? { fuse } : {}));
+
   const FIRE = {
-    bazooka: (g, w, c) => g.projectiles.push(launch(w, c.angle, c.power, { kind: 'bazooka', windAffected: true, onImpact: 'bazooka' })),
-    grenade: (g, w, c) => g.projectiles.push(launch(w, c.angle, c.power, { kind: 'grenade', r: 5, bounce: 0.5, fuse: g.fuse[g.current], onImpact: 'grenade' })),
-    mortar: (g, w, c) => g.projectiles.push(launch(w, c.angle, c.power, { kind: 'mortar', r: 5, windAffected: true, onImpact: 'mortar' })),
+    bazooka: (g, w, c) => g.projectiles.push(W.launchProjectile(w, 'bazooka', c.angle, c.power)),
+    grenade: (g, w, c) => g.projectiles.push(W.launchProjectile(w, 'grenade', c.angle, c.power, g.fuse[g.current])),
+    mortar: (g, w, c) => g.projectiles.push(W.launchProjectile(w, 'mortar', c.angle, c.power)),
     dynamite: (g, w) => g.projectiles.push(projectile({ kind: 'dynamite', x: w.x, y: w.y, r: 5, bounce: 0.2, fuse: 4, owner: w, onImpact: 'dynamite' })),
     shotgun: (g, w, c) => {
       for (let i = 0; i < 7; i++) {
