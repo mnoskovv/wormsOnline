@@ -145,3 +145,27 @@ test('jumping down from a high ledge still hurts', () => {
 test('walking is brisker than a crawl', () => {
   assert.ok(W.CFG.WALK_SPEED >= 65 && W.CFG.WALK_SPEED <= 75);
 });
+
+test('back flip turns the worm one full somersault backwards', () => {
+  const t = ground();
+  const w = settled(800, t);
+  w.facing = 1;
+  W.jumpWorm(w, true);
+  const angles = [];
+  for (let i = 0; i < 300 && (i === 0 || !w.grounded); i++) {
+    W.stepWorm(w, t, 0, DT);
+    angles.push(W.flipAngle(w));
+  }
+  const min = Math.min(...angles);
+  assert.ok(min < -Math.PI * 1.7, `turned to ${min}`);
+  assert.ok(angles.every((a, i) => i === 0 || a <= angles[i - 1] + 1e-9 || a === 0), 'turns one way');
+  assert.strictEqual(W.flipAngle(w), 0, 'upright after landing');
+});
+
+test('forward jump does not somersault', () => {
+  const t = ground();
+  const w = settled(800, t);
+  W.jumpWorm(w, false);
+  W.stepWorm(w, t, 0, DT);
+  assert.strictEqual(W.flipAngle(w), 0);
+});

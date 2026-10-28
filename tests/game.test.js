@@ -123,3 +123,14 @@ test('jumping from the ground emits a jump event', () => {
   assert.ok(W.applyCommand(g, g.current, { type: 'jump', back: false }));
   assert.ok(g.events.some(e => e.type === 'jump'));
 });
+
+test('aim keys raise and lower the aim relative to where the worm faces', () => {
+  const w = { facing: -1, aim: 0 };
+  const up = W.aimStep(w, -1, 0.5);
+  assert.ok(Math.sin(up) < 0, 'up points upward');
+  assert.ok(Math.cos(up) < 0, 'still faces left');
+  const down = W.aimStep({ facing: 1, aim: 0 }, 1, 0.5);
+  assert.ok(Math.sin(down) > 0 && Math.cos(down) > 0);
+  const top = W.aimStep({ facing: 1, aim: -1.5 }, -1, 5);
+  assert.ok(Math.abs(top + Math.PI / 2) < 1e-6, `clamped at straight up, got ${top}`);
+});

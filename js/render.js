@@ -134,6 +134,12 @@
       const shake = hurt ? Math.sin(hurtAge * 60) * 2 * (1 - hurtAge / 0.6) : 0;
       ctx.save();
       ctx.translate(w.x + shake, w.y + C.WORM_R);
+      const flip = W.flipAngle(w);
+      if (flip) {
+        ctx.translate(0, -C.WORM_R * 1.6);
+        ctx.rotate(flip);
+        ctx.translate(0, C.WORM_R * 1.6);
+      }
       ctx.scale(1.45 * squash, 1.45 / squash);
       ctx.translate(0, bob);
       const skin = '#ffb3c8', line = '#7a2f4a';
@@ -169,7 +175,8 @@
       ctx.stroke();
       ctx.restore();
 
-      if (active && game.phase === 'turn') this.weaponInHand(w, game.weapon[i]);
+      // В сальто оружие убрано, иначе оно висит в воздухе ровно, пока червяк крутится.
+      if (active && game.phase === 'turn' && !W.flipAngle(w)) this.weaponInHand(w, game.weapon[i]);
       // Табличка с именем и хп.
       ctx.font = `bold 12px ${FONT}`;
       ctx.textAlign = 'center';
@@ -379,7 +386,10 @@
       this.playerPlates(game);
       this.windAndTimer(game);
       if (view.hints && game.phase === 'turn') {
-        const t = '← → ходить   ·   Enter прыжок   ·   Пробел / ЛКМ — выстрел   ·   Tab / ПКМ — оружие';
+        const byPoint = W.WEAPONS[game.weapon[game.current]].aim === 'target';
+        const t = byPoint
+          ? '← → ходить   ·   Enter прыжок   ·   Backspace сальто   ·   ЛКМ — выбрать точку   ·   Tab / ПКМ — оружие'
+          : '← → ходить   ·   ↑ ↓ прицел   ·   Enter прыжок   ·   Backspace сальто   ·   Пробел — выстрел   ·   Tab / ПКМ — оружие';
         ctx.font = `bold 15px ${FONT}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';

@@ -17,10 +17,12 @@
     w.grounded = false;
     w.fallStartY = w.y;
     w.jumped = false;
+    w.flip = false;
   }
 
   function land(w, events) {
     w.grounded = true;
+    w.flip = false;
     w.vx = 0;
     w.vy = 0;
     const fall = w.y - w.fallStartY;
@@ -126,6 +128,14 @@
     w.vy = back ? C.BACKJUMP_VY : C.JUMP_VY;
     startFalling(w);
     w.jumped = true;
+    w.flip = back;
+  };
+
+  // Поворот червяка в сальто: один оборот назад за время полёта до высоты толчка.
+  W.flipAngle = function (w) {
+    if (!w.flip || w.grounded) return 0;
+    const p = Math.min(1, Math.max(0, (w.vy - C.BACKJUMP_VY) / (-2 * C.BACKJUMP_VY)));
+    return -w.facing * Math.PI * 2 * p;
   };
 
   // Нормаль поверхности в точке: от центра масс твёрдых пикселей вокруг.

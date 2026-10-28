@@ -37,6 +37,14 @@
   // Угол прицела относительно взгляда ↔ абсолютный угол.
   W.absoluteAim = (worm) => (worm.facing === 1 ? worm.aim : Math.PI - worm.aim);
 
+  // Прицел стрелками: dir −1 — выше, +1 — ниже. Возвращает новый абсолютный угол для команды 'aim'.
+  // Чуть не доходим до вертикали, чтобы червяк не развернулся.
+  const AIM_LIMIT = Math.PI / 2 - 1e-7;
+  W.aimStep = function (worm, dir, dt) {
+    const rel = W.clamp(worm.aim + dir * C.AIM_SPEED * dt, -AIM_LIMIT, AIM_LIMIT);
+    return worm.facing === 1 ? rel : Math.PI - rel;
+  };
+
   function setAim(worm, angle) {
     const facing = Math.cos(angle) >= 0 ? 1 : -1;
     let rel = facing === 1 ? angle : Math.PI - angle;

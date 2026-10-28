@@ -9,7 +9,7 @@
       this.opts = opts; // {getGame, canControl(player), send(cmd), onTogglePanel, isPanelOpen}
       this.charge = null;
       this.hover = null;
-      this.held = { left: false, right: false };
+      this.held = { left: false, right: false, up: false, down: false };
       // Второй клик по кнопке «В бой!» не должен стать выстрелом.
       this.armedAt = performance.now() + 400;
       this.handlers = [];
@@ -17,7 +17,6 @@
       this.on(window, 'keyup', e => this.keyUp(e));
       this.on(canvas, 'mousemove', e => this.mouseMove(e));
       this.on(canvas, 'mousedown', e => this.mouseDown(e));
-      this.on(window, 'mouseup', e => { if (e.button === 0) this.release(); });
       this.on(canvas, 'contextmenu', e => { e.preventDefault(); this.togglePanel(); });
     }
 
@@ -68,6 +67,11 @@
           this.held[e.code === 'ArrowLeft' ? 'left' : 'right'] = true;
           this.send({ type: 'walk', dir: this.walkDir() });
           return;
+        case 'ArrowUp':
+        case 'ArrowDown':
+          e.preventDefault();
+          this.held[e.code === 'ArrowUp' ? 'up' : 'down'] = true;
+          return;
         case 'Enter':
           e.preventDefault();
           if (!e.repeat) this.send({ type: 'jump', back: false });
@@ -98,6 +102,8 @@
       if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
         this.held[e.code === 'ArrowLeft' ? 'left' : 'right'] = false;
         if (this.mine()) this.send({ type: 'walk', dir: this.walkDir() });
+      } else if (e.code === 'ArrowUp' || e.code === 'ArrowDown') {
+        this.held[e.code === 'ArrowUp' ? 'up' : 'down'] = false;
       } else if (e.code === 'Space') {
         this.release();
       }
@@ -112,15 +118,13 @@
       this.send({ type: 'aim', angle: Math.atan2(this.hover.y - w.y, this.hover.x - w.x) });
     }
 
+    // Клик стреляет только оружием «по точке» (авиаудар, телепорт). Остальное — пробелом.
     mouseDown(e) {
       if (e.button !== 0 || !this.mine()) return;
       if (this.opts.isPanelOpen() || performance.now() < this.armedAt) return;
+      if (this.game().phase !== 'turn' || this.weaponDef().aim !== 'target') return;
       this.hover = this.renderer.toWorld(e.clientX, e.clientY);
-      if (this.weaponDef().aim === 'target') {
-        this.send({ type: 'fire', target: { x: this.hover.x, y: this.hover.y } });
-        return;
-      }
-      this.press();
+      this.send({ type: 'fire', target: { x: this.hover.x, y: this.hover.y } });
     }
 
     // Нажатие кнопки выстрела: зарядка или мгновенный выстрел.
@@ -141,6 +145,11 @@
 
     update(dt) {
       const g = this.game();
+      const aimDir = this.held.up === this.held.down ? 0 : this.held.up ? -1 : 1;
+      if (aimDir && this.mine() && g.phase === 'turn' && !this.opts.isPanelOpen() && this.weaponDef().aim !== 'target') {
+        const w = g.worms[g.current];
+        if (!w.dead) this.send({ type: 'aim', angle: W.aimStep(w, aimDir, dt) });
+      }
       if (this.charge === null) return;
       if (!this.mine() || g.phase !== 'turn') { this.charge = null; return; }
       this.charge = Math.min(1, this.charge + dt / C.CHARGE_TIME);
@@ -148,7 +157,7 @@
     }
 
     resetHeld() {
-      this.held.left = this.held.right = false;
+      this.held.left = this.held.right = this.held.up = this.held.down = false;
       this.charge = null;
     }
   }
