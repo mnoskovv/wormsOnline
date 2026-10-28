@@ -121,6 +121,46 @@
     game.events.push({ type: 'turnStart', player: game.current });
   }
 
+  // Снимок для сети: только данные, без ссылок на объекты. Infinity в запасе → -1.
+  const GAME_FIELDS = ['current', 'phase', 'turnTime', 'retreatTime', 'settleTime', 'wind', 'weapon', 'fuse',
+    'walkDir', 'winner', 'turnNumber'];
+
+  W.snapshot = function (game, holesFrom = 0) {
+    const s = {};
+    for (const k of GAME_FIELDS) s[k] = Array.isArray(game[k]) ? game[k].slice() : game[k];
+    s.ammo = game.ammo.map(a => {
+      const o = {};
+      for (const id in a) o[id] = a[id] === Infinity ? -1 : a[id];
+      return o;
+    });
+    s.rng = game.rng.getState();
+    s.worms = game.worms.map(w => Object.assign({}, w));
+    s.projectiles = game.projectiles.map(p => Object.assign({}, p, { owner: p.owner ? p.owner.id : null }));
+    s.holesFrom = holesFrom;
+    s.holes = game.terrain.holes.slice(holesFrom).map(h => ({ x: h.x, y: h.y, r: h.r }));
+    return s;
+  };
+
+  W.applySnapshot = function (game, s) {
+    for (const k of GAME_FIELDS) game[k] = Array.isArray(s[k]) ? s[k].slice() : s[k];
+    game.ammo = s.ammo.map(a => {
+      const o = {};
+      for (const id in a) o[id] = a[id] === -1 ? Infinity : a[id];
+      return o;
+    });
+    game.rng.setState(s.rng);
+    s.worms.forEach((w, i) => Object.assign(game.worms[i], w));
+    game.projectiles = s.projectiles.map(p => Object.assign({}, p, { owner: p.owner === null ? null : game.worms[p.owner] }));
+    const t = game.terrain;
+    s.holes.forEach((h, i) => {
+      if (s.holesFrom + i >= t.holes.length) t.carve(h.x, h.y, h.r);
+    });
+  };
+
+  // В событиях поле worm — объект червяка; по сети передаём его id.
+  W.encodeEvent = (e) => (e.worm && typeof e.worm === 'object' ? Object.assign({}, e, { worm: e.worm.id }) : e);
+  W.decodeEvent = (game, e) => (typeof e.worm === 'number' ? Object.assign({}, e, { worm: game.worms[e.worm] }) : e);
+
   W.stepGame = function (game, dt) {
     if (game.phase === 'gameover') return;
     const acting = game.phase === 'turn' || game.phase === 'retreat';
